@@ -15,6 +15,30 @@ export async function onRequestPost(context) {
       });
     }
 
+    const cleanKeyword = keyword.trim();
+    const modelId = modelConfig ? `${modelConfig.provider}:${modelConfig.modelName}` : 'built-in:gemini-2.5-flash';
+    const cacheKey = `html:${modelId}:${cleanKeyword}`;
+    const KV = env.AETHERVIZ_KV;
+
+    // 1. 尝试从 KV 缓存中读取
+    if (KV) {
+      try {
+        const cachedHtml = await KV.get(cacheKey);
+        if (cachedHtml) {
+          console.log(`[Edge Cache Hit] 命中缓存: [${modelId}] -> "${cleanKeyword}"`);
+          return new Response(JSON.stringify({ html: cachedHtml, fromCache: true }), {
+            status: 200,
+            headers: { 
+              'Content-Type': 'application/json;charset=UTF-8',
+              'Access-Control-Allow-Origin': '*'
+            }
+          });
+        }
+      } catch (err) {
+        console.error('[Cache Read Error]', err);
+      }
+    }
+
     let htmlContent = '';
     const builtInApiKey = env.GEMINI_API_KEY;
 
@@ -56,8 +80,39 @@ export async function onRequestPost(context) {
         cleanedHtml = cleanedHtml.substring(0, cleanedHtml.length - 3);
       }
     }
+
+    const finalHtml = cleanedHtml.trim();
+
+    // 2. 将结果写入 KV 缓存，并更新全局历史列表
+    if (KV && finalHtml) {
+      try {
+        await KV.put(cacheKey, finalHtml);
+        
+        const historyStr = await KV.get('history_list') || '[]';
+        const history = JSON.parse(historyStr);
+        const newHistoryItem = {
+          id: `${modelId}:${cleanKeyword}:${Date.now()}`,
+          keyword: cleanKeyword,
+          modelName: modelConfig ? modelConfig.modelName : 'gemini-2.5-flash',
+          provider: modelConfig ? modelConfig.provider : 'built-in',
+          createdAt: new Date().toISOString()
+        };
+
+        const filtered = history.filter(item => !(item.keyword === newHistoryItem.keyword && item.modelName === newHistoryItem.modelName));
+        filtered.unshift(newHistoryItem);
+
+        if (filtered.length > 100) {
+          filtered.pop();
+        }
+
+        await KV.put('history_list', JSON.stringify(filtered));
+        console.log(`[Edge Cache Write] 缓存写入并更新历史: [${modelId}] -> "${cleanKeyword}"`);
+      } catch (err) {
+        console.error('[Cache Write Error]', err);
+      }
+    }
     
-    return new Response(JSON.stringify({ html: cleanedHtml.trim() }), {
+    return new Response(JSON.stringify({ html: finalHtml, fromCache: false }), {
       status: 200,
       headers: { 
         'Content-Type': 'application/json;charset=UTF-8',

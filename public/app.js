@@ -143,6 +143,10 @@ const formBaseUrl = document.getElementById('model-baseurl');
 const formModelName = document.getElementById('model-name');
 const formApiKey = document.getElementById('model-apikey');
 
+// 历史记录相关 DOM 引用
+const historyCount = document.getElementById('history-count');
+const historyList = document.getElementById('history-list');
+
 // 全局变量缓存
 let activeSubjectId = 'physics';
 let currentGeneratedHtml = '';
@@ -158,6 +162,7 @@ function init() {
   renderSubjectTabs();
   renderKeywords(activeSubjectId);
   setupEventListeners();
+  loadHistory();
 }
 
 // 初始化自定义模型数据
@@ -171,7 +176,6 @@ function initModels() {
     apiKey: ''
   };
 
-  // 从 LocalStorage 中读取模型
   const stored = localStorage.getItem('aetherviz_models');
   if (stored) {
     try {
@@ -185,12 +189,10 @@ function initModels() {
     localStorage.setItem('aetherviz_models', JSON.stringify(models));
   }
 
-  // 确保至少有默认项
   if (!models.some(m => m.id === 'built-in-gemini')) {
     models.unshift(defaultGeminiModel);
   }
 
-  // 获取最近一次激活的模型
   const storedActiveId = localStorage.getItem('aetherviz_active_model_id');
   if (storedActiveId && models.some(m => m.id === storedActiveId)) {
     activeModelId = storedActiveId;
@@ -271,6 +273,73 @@ function renderKeywords(subjectId) {
   `).join('');
 }
 
+// 载入并渲染生成历史
+async function loadHistory() {
+  try {
+    const response = await fetch('/api/history');
+    if (!response.ok) throw new Error('拉取历史记录失败');
+    
+    const list = await response.json();
+    historyCount.innerText = `${list.length} 条记录`;
+
+    if (list.length === 0) {
+      historyList.innerHTML = `<div class="text-center text-slate-600 text-xs py-8 select-none">暂无生成历史</div>`;
+      return;
+    }
+
+    historyList.innerHTML = list.map(item => {
+      // 提取相对时间或格式化日期
+      const timeStr = formatRelativeTime(item.createdAt);
+      const isBuiltIn = item.provider === 'built-in';
+      const modelDisplay = isBuiltIn ? '内置 Gemini' : item.modelName;
+      
+      // 判断该项目是否匹配当前下拉框选中的模型
+      const expectedId = isBuiltIn ? 'built-in-gemini' : `${item.provider}:${item.modelName}`;
+      const isCurrentModelMatch = expectedId === activeModelId;
+
+      return `
+        <div 
+          data-keyword="${item.keyword}"
+          data-model-id="${expectedId}"
+          data-model-name="${item.modelName}"
+          class="history-item p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 text-left"
+          title="点击瞬间重新载入并渲染该页面"
+        >
+          <div class="flex-1 min-w-0 pr-1">
+            <div class="text-xs font-semibold text-slate-300 truncate">${item.keyword}</div>
+            <div class="text-[9px] text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
+              <span>${modelDisplay}</span>
+              <span>•</span>
+              <span>${timeStr}</span>
+            </div>
+          </div>
+          ${isCurrentModelMatch ? `
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-md shadow-cyan-400/50" title="当前模型与此历史匹配"></span>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('加载历史记录错误:', err);
+    historyList.innerHTML = `<div class="text-center text-rose-500/60 text-xs py-8">拉取历史记录失败</div>`;
+  }
+}
+
+// 格式化时间为相对时间
+function formatRelativeTime(isoString) {
+  const date = new Date(isoString);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+
+  if (diffMin < 1) return '刚刚';
+  if (diffMin < 60) return `${diffMin}分钟前`;
+  if (diffHr < 24) return `${diffHr}小时前`;
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 // 打开配置 Modal
 function openModelModal() {
   modelModal.classList.remove('hidden');
@@ -320,7 +389,6 @@ function loadModelToForm(modelId) {
   formApiKey.value = model.apiKey;
   formTitle.innerText = `编辑模型: ${model.alias}`;
 
-  // 内置模型不能修改配置，只能查看
   if (modelId === 'built-in-gemini') {
     formAlias.disabled = true;
     formProvider.disabled = true;
@@ -341,11 +409,9 @@ function setupEventListeners() {
     const subjectId = tab.dataset.id;
     activeSubjectId = subjectId;
     
-    // 更新 UI 样式
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     tab.classList.add('active');
     
-    // 渲染关键词
     renderKeywords(subjectId);
   });
 
@@ -355,6 +421,31 @@ function setupEventListeners() {
     if (!card) return;
     
     const keyword = card.dataset.keyword;
+    searchInput.value = keyword;
+    generate3DPage(keyword);
+  });
+
+  // 历史记录列表点击重载事件
+  historyList.addEventListener('click', (e) => {
+    const item = e.target.closest('.history-item');
+    if (!item) return;
+    
+    const keyword = item.dataset.keyword;
+    const historyModelId = item.dataset.modelId;
+    const historyModelName = item.dataset.modelName;
+
+    // 尝试匹配本地是否依然拥有该模型的 API Key
+    const matchedModel = models.find(m => m.id === historyModelId);
+    if (matchedModel) {
+      // 找到了，切换为此模型并更新选择框
+      activeModelId = historyModelId;
+      localStorage.setItem('aetherviz_active_model_id', activeModelId);
+      renderModelSelect();
+    } else {
+      // 没找到，说明用户后来把该自定义模型配置删掉了。使用当前下拉选择的模型，并进行 Toast 警示
+      alert(`提示：生成该历史网页所用的模型 [${historyModelName}] 的本地密钥配置已被修改或删除，将使用当前下拉框选中的模型尝试渲染。`);
+    }
+
     searchInput.value = keyword;
     generate3DPage(keyword);
   });
@@ -426,7 +517,6 @@ function setupEventListeners() {
     document.body.appendChild(a);
     a.click();
     
-    // 清理
     setTimeout(() => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
@@ -459,17 +549,14 @@ function setupEventListeners() {
       e.stopPropagation();
       const deleteId = trashBtn.dataset.deleteId;
       if (confirm('确认删除此模型配置吗？')) {
-        // 从数组中删除
         models = models.filter(m => m.id !== deleteId);
         localStorage.setItem('aetherviz_models', JSON.stringify(models));
         
-        // 若删除的是当前激活项，重置为内置
         if (activeModelId === deleteId) {
           activeModelId = 'built-in-gemini';
           localStorage.setItem('aetherviz_active_model_id', activeModelId);
         }
         
-        // 重新渲染列表与下拉框
         renderSavedModelsList();
         renderModelSelect();
         resetForm();
@@ -480,18 +567,13 @@ function setupEventListeners() {
     const card = e.target.closest('.model-item-card');
     if (card) {
       const modelId = card.dataset.id;
-      // 切换当前激活项
       activeModelId = modelId;
       localStorage.setItem('aetherviz_active_model_id', activeModelId);
       
-      // 更新样式
       document.querySelectorAll('.model-item-card').forEach(c => c.classList.remove('active'));
       card.classList.add('active');
       
-      // 更新主界面下拉菜单
       renderModelSelect();
-
-      // 加载到表单以供查看/修改
       loadModelToForm(modelId);
     }
   });
@@ -513,24 +595,20 @@ function setupEventListeners() {
     };
 
     if (modelId) {
-      // 编辑已存在项
       const idx = models.findIndex(m => m.id === modelId);
       if (idx !== -1) {
         models[idx] = { ...models[idx], ...newConfig };
       }
     } else {
-      // 新增项
       const newId = 'custom-' + Date.now();
       newConfig.id = newId;
       models.push(newConfig);
-      activeModelId = newId; // 新增模型直接激活
+      activeModelId = newId;
       localStorage.setItem('aetherviz_active_model_id', activeModelId);
     }
 
-    // 保存到 LocalStorage
     localStorage.setItem('aetherviz_models', JSON.stringify(models));
     
-    // 更新渲染
     renderSavedModelsList();
     renderModelSelect();
     resetForm();
@@ -575,7 +653,6 @@ async function generate3DPage(keyword) {
   const activeModel = models.find(m => m.id === activeModelId);
   const payload = { keyword };
 
-  // 如果选择的不是内置模型，则传入自定义配置
   if (activeModel && activeModel.id !== 'built-in-gemini') {
     payload.modelConfig = {
       provider: activeModel.provider,
@@ -608,12 +685,10 @@ async function generate3DPage(keyword) {
     // 3. 生成成功，处理响应
     currentGeneratedHtml = htmlContent;
     
-    // 销毁旧的 Blob URL
     if (currentBlobUrl) {
       URL.revokeObjectURL(currentBlobUrl);
     }
     
-    // 创建新的 Blob URL 并注入 iframe
     const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
     currentBlobUrl = URL.createObjectURL(blob);
     
@@ -623,14 +698,20 @@ async function generate3DPage(keyword) {
     // 更新界面状态
     previewUrl.innerText = `aetherviz://lesson/${encodeURIComponent(keyword)}`;
     statusDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50';
-    statusText.innerText = `已生成: ${keyword}`;
+    
+    // 如果是命中缓存，给予相应提示状态
+    if (data.fromCache) {
+      statusText.innerText = `已展示(缓存): ${keyword}`;
+    } else {
+      statusText.innerText = `已生成: ${keyword}`;
+    }
     
     // 启用操作按钮
     btnCopy.disabled = false;
     btnFullscreen.disabled = false;
     btnDownload.disabled = false;
     
-    // 隐藏 Loading
+    // 隐藏 Loading 并重载历史记录
     finishLoadingSimulation();
     
   } catch (error) {
@@ -642,11 +723,9 @@ async function generate3DPage(keyword) {
     loadingDesc.innerText = error.message || '网络连接或模型响应错误';
     progressBar.parentElement.classList.add('hidden');
     
-    // 复原 UI 状态
     statusDot.className = 'inline-block w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50';
     statusText.innerText = `生成失败: ${error.message.substring(0, 30)}`;
     
-    // 提供重试按钮
     setTimeout(() => {
       resetLoadingState();
     }, 4500);
@@ -679,7 +758,6 @@ function startLoadingSimulation(keyword) {
   if (loadingInterval) clearInterval(loadingInterval);
   
   loadingInterval = setInterval(() => {
-    // 模拟平滑推进，越往后越慢
     if (progress < 40) {
       progress += Math.random() * 8 + 2;
     } else if (progress < 75) {
@@ -690,7 +768,6 @@ function startLoadingSimulation(keyword) {
     
     progressBar.style.width = `${Math.min(progress, 95)}%`;
     
-    // 切换提示语
     if (Math.random() > 0.7) {
       hintIdx = (hintIdx + 1) % hints.length;
       loadingDesc.innerText = hints[hintIdx];
@@ -707,11 +784,11 @@ function finishLoadingSimulation() {
   loadingDesc.innerText = '3D 交互页面已渲染完成，快来预览一下吧！';
   
   setTimeout(() => {
-    // 渐隐 Loading
     loadingOverlay.style.opacity = '0';
     setTimeout(() => {
       loadingOverlay.classList.add('hidden');
       resetUIControls();
+      loadHistory(); // 重新加载历史列表
     }, 500);
   }, 800);
 }

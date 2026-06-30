@@ -138,6 +138,25 @@
             </div>
           </div>
         </div>
+
+        <!-- 生成历史记录卡片 -->
+        <div class="glass-panel p-5 rounded-2xl border border-white/10 flex flex-col gap-3 min-h-[180px] max-h-[250px]">
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-history text-cyan-400"></i>
+              <span>生成历史记录</span>
+            </h2>
+            <span class="text-[9px] text-slate-500 font-mono" id="history-count">0 条记录</span>
+          </div>
+          
+          <!-- 历史列表区域 -->
+          <div class="flex-1 overflow-y-auto pr-1" id="history-list-container">
+            <div class="flex flex-col gap-2" id="history-list">
+              <!-- 动态生成历史记录列表 -->
+              <div class="text-center text-slate-500 text-xs py-6">暂无生成历史</div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <!-- 右栏：实时预览与操作区 (12列中的7列) -->
