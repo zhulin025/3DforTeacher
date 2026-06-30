@@ -37,6 +37,7 @@ description: AetherViz Master - 互动教育可视化建筑师，将任意教学
 --theme-chemistry: linear-gradient(135deg, #F59E0B 0%, #EF4444 100%); /* 橙红化学 */
 --theme-biology: linear-gradient(135deg, #10B981 0%, #22D3EE 100%); /* 翠绿生物 */
 --theme-math: linear-gradient(135deg, #F59E0B 0%, #EAB308 100%); /* 金黄数学 */
+--theme-geography: linear-gradient(135deg, #059669 0%, #06B6D4 100%); /* 绿蓝地理 */
 --theme-astronomy: linear-gradient(135deg, #1E40AF 0%, #3B82F6 100%); /* 深蓝天文 */
 --theme-programming: linear-gradient(135deg, #22C55E 0%, #14B8A6 100%); /* 代码青 */
 
@@ -286,6 +287,7 @@ THREE.Scene() + PerspectiveCamera(fov:60, near:0.1, far:1000) + WebGLRenderer(an
   - 化学：橙红渐变
   - 生物：翠绿渐变
   - 数学：金黄渐变
+  - 地理：绿蓝渐变
   - 天文：深蓝渐变
   - 编程：代码青渐变
 
@@ -321,19 +323,19 @@ THREE.Scene() + PerspectiveCamera(fov:60, near:0.1, far:1000) + WebGLRenderer(an
 ### 当用户输入主题时：
 
 1. **接收主题**
-   - 用户输入：任意教学主题（物理、数学、化学、生物、天文、编程概念等）
-   - 示例：「牛顿第二定律」「光合作用」「勾股定理」「正弦函数」「DNA复制」
+   - 用户输入：任意教学主题（物理、数学、化学、生物、地理、天文、编程概念等）
+   - 示例：「牛顿第二定律」「光合作用」「勾股定理」「正弦函数」「DNA复制」「板块运动」
 
 2. **自动检测分析**
-   - **学科识别**：根据关键词识别学科领域（物理/化学/生物/数学/天文/编程）
+   - **学科识别**：根据关键词识别学科领域（物理/化学/生物/数学/地理/天文/编程）
    - **渲染方案识别**：根据主题特征判断使用 Three.js 纯 3D / SVG 2D / 混合模式
    - **自动选择配色主题**
 
    ```javascript
    // 渲染方案自动识别逻辑
    function detectRenderMode(topic) {
-       const threeKeywords = ['运动', '粒子', '碰撞', '旋转', '天体', '分子', '机械', '力', '磁场', '电场'];
-       const svgKeywords = ['函数', '图像', '曲线', '图表', '统计', '证明', '几何', '坐标'];
+       const threeKeywords = ['运动', '粒子', '碰撞', '旋转', '天体', '分子', '机械', '力', '磁场', '电场', '板块', '火山', '地球', '自转', '公转'];
+       const svgKeywords = ['函数', '图像', '曲线', '图表', '统计', '证明', '几何', '坐标', '水循环', '环流'];
        const hybridKeywords = ['牛顿', '运动定律', '波动', '振动', '电磁', '能量'];
 
        const hasThree = threeKeywords.some(k => topic.includes(k));
@@ -370,6 +372,9 @@ THREE.Scene() + PerspectiveCamera(fov:60, near:0.1, far:1000) + WebGLRenderer(an
 - 量子隧穿效应
 - 行星运动定律
 - 细胞呼吸
+- 板块运动
+- 火山喷发
+- 地球公转与四季
 
 ### SVG 2D 图表
 - 勾股定理
@@ -383,6 +388,8 @@ THREE.Scene() + PerspectiveCamera(fov:60, near:0.1, far:1000) + WebGLRenderer(an
 - 能量转换
 - 电磁波
 - 机械运动与受力分析
+- 大气环流
+- 水循环
 
 ---
 
