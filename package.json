@@ -1,0 +1,31 @@
+{
+  "name": "aetherviz-generator-web",
+  "version": "1.0.0",
+  "description": "3D Interactive Lesson Generator for Teachers, powered by AetherViz Master and Gemini API",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "build": "node build-skill.js",
+    "pages:dev": "npm run build && wrangler pages dev"
+  },
+  "keywords": [
+    "three.js",
+    "gemini",
+    "education",
+    "3d",
+    "generator"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.13.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "wrangler": "^3.57.1"
+  }
+}

@@ -1,0 +1,256 @@
+/* AetherViz AI Dashboard Custom Style */
+
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --neon-teal: #14B8A6;
+  --neon-cyan: #06B6D4;
+}
+
+body {
+  background-color: #070A13;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Glassmorphism Panel */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel:hover {
+  border-color: rgba(6, 182, 212, 0.2);
+  box-shadow: 0 12px 40px 0 rgba(6, 182, 212, 0.1);
+}
+
+/* Tab Active Styles */
+.tab-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tab-btn.active {
+  background: linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%);
+  border-color: rgba(6, 182, 212, 0.4);
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.15);
+}
+
+/* Keyword Card Styles */
+.keyword-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.25s ease;
+}
+
+.keyword-card:hover {
+  background: rgba(6, 182, 212, 0.08);
+  border-color: rgba(6, 182, 212, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);
+}
+
+.keyword-card:active {
+  transform: translateY(0);
+}
+
+/* Premium 3D Atom Loading Animation */
+.atom-container {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 400px;
+}
+
+.nucleus {
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, #22D3EE 0%, #06B6D4 60%, #0D9488 100%);
+  border-radius: 50%;
+  box-shadow: 0 0 20px #22D3EE, 0 0 40px #06B6D4;
+  animation: pulse 1.8s ease-in-out infinite;
+  z-index: 5;
+}
+
+.orbit {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid rgba(34, 211, 238, 0.25);
+  border-radius: 50%;
+  transform-style: preserve-3d;
+}
+
+/* 轨道 1: 水平偏转 */
+.orbit-1 {
+  transform: rotateX(70deg) rotateY(15deg);
+  animation: rotate-orbit-1 3.5s linear infinite;
+}
+
+/* 轨道 2: 顺时针斜偏转 */
+.orbit-2 {
+  transform: rotateX(70deg) rotateY(-45deg);
+  animation: rotate-orbit-2 3.5s linear infinite;
+}
+
+/* 轨道 3: 逆时针斜偏转 */
+.orbit-3 {
+  transform: rotateX(70deg) rotateY(75deg);
+  animation: rotate-orbit-3 3.5s linear infinite;
+}
+
+.electron {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  background-color: #22d3ee;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 10px #22D3EE, 0 0 20px #22D3EE;
+}
+
+.electron-1 { animation: orbit-anim 1.5s linear infinite; }
+.electron-2 { animation: orbit-anim 1.8s linear infinite; }
+.electron-3 { animation: orbit-anim 1.2s linear infinite; }
+
+/* Keyframes for orbits and electrons */
+@keyframes rotate-orbit-1 {
+  0% { transform: rotateX(70deg) rotateY(15deg) rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateY(15deg) rotateZ(360deg); }
+}
+
+@keyframes rotate-orbit-2 {
+  0% { transform: rotateX(70deg) rotateY(-45deg) rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateY(-45deg) rotateZ(360deg); }
+}
+
+@keyframes rotate-orbit-3 {
+  0% { transform: rotateX(70deg) rotateY(75deg) rotateZ(0deg); }
+  100% { transform: rotateX(70deg) rotateY(75deg) rotateZ(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 20px #22D3EE, 0 0 40px #06B6D4; }
+  50% { transform: scale(1.15); box-shadow: 0 0 30px #22D3EE, 0 0 55px #06B6D4; }
+}
+
+/* Progress bar moving gradient */
+.progress-bar {
+  background-size: 200% auto;
+  animation: move-gradient 2s linear infinite;
+  width: 0%;
+  transition: width 0.4s ease;
+}
+
+@keyframes move-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Custom Scrollbar */
+#keyword-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+#keyword-list-container::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+#keyword-list-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+#keyword-list-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.3);
+}
+
+/* Glass Buttons */
+.glass-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Fullscreen simulation or frame animation */
+iframe {
+  background: #000;
+  transition: opacity 0.5s ease;
+}
+
+/* Modal Animation & Helper Styles */
+#model-modal {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+#model-modal.active {
+  opacity: 1 !important;
+}
+
+/* Modal form inputs hover and focus states */
+#model-form input, #model-form select {
+  transition: all 0.2s ease;
+}
+
+#model-form input:focus, #model-form select:focus {
+  background-color: #0c1222;
+  box-shadow: 0 0 10px rgba(6, 182, 212, 0.15);
+}
+
+/* Model item card in list */
+.model-item-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.model-item-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(6, 182, 212, 0.2);
+}
+
+.model-item-card.active {
+  border-color: rgba(6, 182, 212, 0.4);
+  background: rgba(6, 182, 212, 0.05);
+}
+
+/* Scrollbar for modal list */
+#saved-models-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+#saved-models-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+}
+
+#saved-models-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+#saved-models-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(6, 182, 212, 0.2);
+}

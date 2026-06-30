@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AetherViz AI - 3D 教学可视化生成器</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome for Premium Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Vanilla CSS for custom animations and Glassmorphism -->
+  <link rel="stylesheet" href="style.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+            outfit: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              teal: '#14B8A6',
+              cyan: '#06B6D4',
+              sky: '#0EA5E9',
+              darkBg: '#090D1A',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#070A13] text-slate-100 font-sans min-h-screen overflow-x-hidden relative">
+  <!-- 背景网格与流光霓虹 -->
+  <div class="fixed inset-0 z-0 bg-[linear-gradient(to_right,#1f293712_1px,transparent_1px),linear-gradient(to_bottom,#1f293712_1px,transparent_1px)] bg-[size:4rem_4rem]"></div>
+  <div class="fixed -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-[128px] pointer-events-none"></div>
+  <div class="fixed -bottom-40 -right-40 w-96 h-96 bg-teal-500/10 rounded-full blur-[128px] pointer-events-none"></div>
+
+  <!-- 主容器 -->
+  <div class="relative z-10 min-h-screen flex flex-col max-w-7xl mx-auto p-4 md:p-6">
+    
+    <!-- 顶部 Logo & 标题 -->
+    <header class="flex items-center justify-between mb-6 border-b border-white/5 pb-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-teal to-brand-cyan flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid fa-cubes text-white text-xl animate-pulse"></i>
+        </div>
+        <div>
+          <h1 class="text-xl md:text-2xl font-extrabold font-outfit bg-gradient-to-r from-teal-400 via-cyan-400 to-sky-400 bg-clip-text text-transparent">
+            AetherViz AI
+          </h1>
+          <p class="text-[10px] text-slate-400 font-outfit uppercase tracking-widest -mt-1">3D Interactive Lesson Generator</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="https://github.com/andyhuo520/aetherviz-master" target="_blank" class="glass-btn px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 text-slate-300 hover:text-white transition">
+          <i class="fa-brands fa-github text-sm"></i>
+          <span>GitHub</span>
+        </a>
+      </div>
+    </header>
+
+    <!-- 主体：双栏布局 -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+      
+      <!-- 左栏：控制与输入面板 (12列中的5列) -->
+      <section class="lg:col-span-5 flex flex-col gap-5">
+        
+        <!-- 生成器控制卡片 -->
+        <div class="glass-panel p-5 rounded-2xl border border-white/10 flex flex-col gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-magic text-cyan-400"></i>
+              <span>生成 3D 互动页面</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">输入您想讲解的教学主题，AI 将瞬间为您生成一个高交互的 3D 页面。</p>
+          </div>
+
+          <!-- 模型选择与配置区域 -->
+          <div class="flex items-center justify-between gap-3 bg-[#0d1222]/50 border border-white/5 p-2 rounded-xl text-xs">
+            <div class="flex items-center gap-1.5 text-slate-300">
+              <i class="fa-solid fa-microchip text-brand-teal"></i>
+              <span>生成模型：</span>
+            </div>
+            <div class="flex items-center gap-2 flex-1 justify-end">
+              <select id="model-select" class="bg-[#0b0f19] border border-white/10 text-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-cyan-500/50 cursor-pointer max-w-[160px] truncate">
+                <!-- 动态生成模型列表 -->
+              </select>
+              <button id="btn-config-models" class="glass-btn px-2 py-1 rounded-lg text-slate-300 hover:text-white transition flex items-center gap-1 text-[11px] cursor-pointer">
+                <i class="fa-solid fa-gear"></i>
+                <span>配置</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 搜索输入框 -->
+          <div class="relative flex items-center mt-0.5">
+            <input 
+              type="text" 
+              id="search-input" 
+              placeholder="例如：牛顿第二定律、DNA复制、勾股定理..." 
+              class="w-full bg-[#0d1222] border border-white/15 focus:border-cyan-500/50 rounded-xl py-3 pl-4 pr-12 text-sm text-slate-100 placeholder-slate-500 focus:outline-none transition shadow-inner"
+            />
+            <button 
+              id="generate-btn" 
+              class="absolute right-2 bg-gradient-to-r from-brand-teal to-brand-cyan hover:from-teal-400 hover:to-cyan-400 text-white font-medium px-4 py-1.5 rounded-lg text-xs shadow-md shadow-cyan-500/10 hover:shadow-cyan-400/20 active:scale-95 transition-all flex items-center gap-1.5"
+            >
+              <span>生成</span>
+              <i class="fa-solid fa-arrow-right"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- 学科分类与预设词卡片 -->
+        <div class="glass-panel p-5 rounded-2xl border border-white/10 flex-1 flex flex-col gap-4">
+          <div>
+            <h2 class="text-base font-semibold text-slate-200 flex items-center gap-2">
+              <i class="fa-solid fa-graduation-cap text-teal-400"></i>
+              <span>学科预设关键词</span>
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">点击下方学科卡片，快速生成最契合 3D/SVG 融合的精品交互演示。</p>
+          </div>
+
+          <!-- 学科分类标签 (Tab 切换) -->
+          <div class="grid grid-cols-3 gap-2" id="subject-tabs">
+            <!-- 动态生成 -->
+          </div>
+
+          <!-- 关键词列表区域 -->
+          <div class="flex-1 bg-[#0c1120] border border-white/5 rounded-xl p-3.5 min-h-[220px] max-h-[340px] overflow-y-auto" id="keyword-list-container">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2" id="keyword-grid">
+              <!-- 动态生成 -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右栏：实时预览与操作区 (12列中的7列) -->
+      <section class="lg:col-span-7 flex flex-col gap-4">
+        
+        <!-- 浏览器 Mockup 预览容器 -->
+        <div class="glass-panel rounded-2xl border border-white/10 flex-1 flex flex-col overflow-hidden min-h-[450px] relative shadow-2xl">
+          
+          <!-- Mockup 头部 -->
+          <div class="bg-black/25 px-4 py-3 flex items-center justify-between border-b border-white/5 z-20">
+            <div class="flex items-center gap-1.5">
+              <span class="w-3 h-3 rounded-full bg-rose-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-500/80"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+            </div>
+            <div class="bg-[#0b0f19] border border-white/5 px-4 py-1 rounded-md text-[10px] text-slate-400 w-1/2 text-center truncate font-mono">
+              <span id="preview-url">AetherViz: Waiting for input...</span>
+            </div>
+            <div class="flex items-center gap-2 text-slate-400 text-xs">
+              <i class="fa-solid fa-rotate-right cursor-pointer hover:text-slate-200 transition" id="reload-iframe-btn"></i>
+            </div>
+          </div>
+
+          <!-- 预览主体 iframe & Loading Overlay -->
+          <div class="flex-1 bg-[#0c1120] relative overflow-hidden" id="preview-body">
+            
+            <!-- 默认展示的引导屏 -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-10 transition-all duration-300" id="welcome-overlay">
+              <div class="w-20 h-20 rounded-full bg-cyan-500/10 flex items-center justify-center mb-4 text-cyan-400 border border-cyan-500/20">
+                <i class="fa-solid fa-cube text-3xl animate-bounce"></i>
+              </div>
+              <h3 class="text-lg font-bold text-slate-200">开始 3D 可视化之旅</h3>
+              <p class="text-xs text-slate-400 max-w-sm mt-2 leading-relaxed">
+                在左侧输入需要讲解的物理原理、化学方程式、数学几何公式或天文学现象，或直接点击下方学科的预设主题生成。
+              </p>
+            </div>
+
+            <!-- AI 3D 生成中 Loading 动画 (具有 Wow Factor 的原子轨道模型) -->
+            <div class="absolute inset-0 bg-[#070a13ee] flex flex-col items-center justify-center p-6 z-30 opacity-0 pointer-events-none transition-all duration-500" id="loading-overlay">
+              <div class="atom-container">
+                <!-- 轨道 1 -->
+                <div class="orbit orbit-1">
+                  <div class="electron electron-1"></div>
+                </div>
+                <!-- 轨道 2 -->
+                <div class="orbit orbit-2">
+                  <div class="electron electron-2"></div>
+                </div>
+                <!-- 轨道 3 -->
+                <div class="orbit orbit-3">
+                  <div class="electron electron-3"></div>
+                </div>
+                <!-- 原子核 -->
+                <div class="nucleus"></div>
+              </div>
+              
+              <div class="mt-8 text-center flex flex-col gap-2">
+                <h4 class="text-sm font-semibold text-cyan-400 tracking-wide font-outfit" id="loading-title">AetherViz Master 正在架构 3D 交互页面</h4>
+                <div class="w-48 h-1 bg-white/5 rounded-full overflow-hidden mx-auto">
+                  <div class="h-full bg-gradient-to-r from-brand-teal to-brand-cyan progress-bar rounded-full"></div>
+                </div>
+                <p class="text-[10px] text-slate-500 max-w-xs mt-1" id="loading-desc">
+                  正在分析学科知识点，正在构建 Three.js 场景，正在渲染 KaTeX 公式...
+                </p>
+              </div>
+            </div>
+
+            <!-- 真实的 iframe 展示 -->
+            <iframe 
+              id="preview-iframe" 
+              class="w-full h-full border-none opacity-0 transition-opacity duration-300 z-10 relative"
+              sandbox="allow-scripts allow-same-origin allow-popups allow-modals"
+            ></iframe>
+          </div>
+        </div>
+
+        <!-- 页面操作按钮栏 -->
+        <div class="glass-panel px-5 py-3 rounded-xl border border-white/10 flex items-center justify-between gap-4 text-sm">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2 h-2 rounded-full bg-slate-600" id="status-dot"></span>
+            <span class="text-xs text-slate-400" id="status-text">未生成页面</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button 
+              id="btn-copy" 
+              disabled 
+              class="action-btn px-3 py-1.5 rounded-lg text-xs bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition flex items-center gap-1.5"
+            >
+              <i class="fa-solid fa-copy"></i>
+              <span>复制代码</span>
+            </button>
+            <button 
+              id="btn-fullscreen" 
+              disabled 
+              class="action-btn px-3 py-1.5 rounded-lg text-xs bg-white/5 text-slate-300 hover:bg-white/10 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition flex items-center gap-1.5"
+            >
+              <i class="fa-solid fa-expand"></i>
+              <span>新窗口全屏</span>
+            </button>
+            <button 
+              id="btn-download" 
+              disabled 
+              class="action-btn px-4 py-1.5 rounded-lg text-xs bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 text-white font-medium shadow-md shadow-cyan-900/20 active:scale-95 disabled:opacity-50 disabled:pointer-events-none transition flex items-center gap-1.5"
+            >
+              <i class="fa-solid fa-download"></i>
+              <span>下载 HTML</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 底部页脚 -->
+    <footer class="mt-8 border-t border-white/5 pt-4 pb-2 text-center text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <p>© 2026 AetherViz Generator. All rights reserved.</p>
+      <p class="flex items-center gap-1">
+        <span>基于 AetherViz Master Skill 驱动</span>
+        <i class="fa-solid fa-heart text-rose-500 animate-pulse"></i>
+        <span>为教学插上 3D 翅膀</span>
+      </p>
+    </footer>
+  </div>
+
+  <!-- 模型配置管理 Modal -->
+  <div id="model-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm hidden transition-all duration-300 opacity-0">
+    <div class="glass-panel w-full max-w-3xl mx-4 rounded-2xl border border-white/15 overflow-hidden flex flex-col max-h-[90vh]">
+      
+      <!-- Modal 头部 -->
+      <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-black/25">
+        <h3 class="font-bold text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-gears text-brand-teal"></i>
+          <span>管理自定义模型</span>
+        </h3>
+        <button id="close-modal-btn" class="text-slate-400 hover:text-white transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal 内容区 -->
+      <div class="flex-1 overflow-y-auto p-5 grid grid-cols-1 md:grid-cols-12 gap-5">
+        
+        <!-- 左侧：已保存的模型列表 (5列) -->
+        <div class="md:col-span-5 flex flex-col gap-3 border-b md:border-b-0 md:border-r border-white/10 pb-4 md:pb-0 md:pr-4">
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">已保存的模型</h4>
+          <div id="saved-models-list" class="flex-1 overflow-y-auto flex flex-col gap-2 min-h-[150px] max-h-[300px] md:max-h-[380px]">
+            <!-- 动态渲染已存模型 -->
+          </div>
+          <button id="btn-add-new-model" class="w-full py-2 rounded-lg text-xs bg-white/5 border border-white/10 hover:bg-white/10 text-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+            <i class="fa-solid fa-plus text-brand-cyan"></i>
+            <span>添加新模型</span>
+          </button>
+        </div>
+
+        <!-- 右侧：模型编辑表单 (7列) -->
+        <form id="model-form" class="md:col-span-7 flex flex-col gap-4">
+          <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider" id="form-title">添加新模型</h4>
+          
+          <!-- 快捷模板 -->
+          <div class="flex flex-col gap-1.5">
+            <span class="text-[10px] text-slate-500">快捷填充模板：</span>
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" data-template="openai" class="tmpl-btn px-2 py-1 bg-white/5 hover:bg-brand-teal/20 hover:border-brand-teal/40 border border-white/10 text-slate-300 rounded text-[10px] transition cursor-pointer">OpenAI 官方</button>
+              <button type="button" data-template="anthropic" class="tmpl-btn px-2 py-1 bg-white/5 hover:bg-brand-teal/20 hover:border-brand-teal/40 border border-white/10 text-slate-300 rounded text-[10px] transition cursor-pointer">Anthropic 官方</button>
+              <button type="button" data-template="deepseek" class="tmpl-btn px-2 py-1 bg-white/5 hover:bg-brand-teal/20 hover:border-brand-teal/40 border border-white/10 text-slate-300 rounded text-[10px] transition cursor-pointer">DeepSeek-Chat</button>
+            </div>
+          </div>
+
+          <input type="hidden" id="model-id" value="">
+
+          <!-- 模型别名 -->
+          <div class="flex flex-col gap-1.5">
+            <label for="model-alias" class="text-xs text-slate-300">模型别名 (如: Claude 3.5)</label>
+            <input type="text" id="model-alias" required placeholder="输入容易辨识的名称" class="bg-[#0b0f19] border border-white/10 focus:border-cyan-500/50 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none transition w-full">
+          </div>
+
+          <!-- 提供商选择 -->
+          <div class="flex flex-col gap-1.5">
+            <label for="model-provider" class="text-xs text-slate-300">协议类型 (Provider)</label>
+            <select id="model-provider" class="bg-[#0b0f19] border border-white/10 focus:border-cyan-500/50 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none transition w-full cursor-pointer">
+              <option value="openai">OpenAI 兼容协议</option>
+              <option value="anthropic">Anthropic 协议</option>
+            </select>
+          </div>
+
+          <!-- Base URL -->
+          <div class="flex flex-col gap-1.5">
+            <label for="model-baseurl" class="text-xs text-slate-300">Base URL</label>
+            <input type="text" id="model-baseurl" required placeholder="如: https://api.openai.com/v1" class="bg-[#0b0f19] border border-white/10 focus:border-cyan-500/50 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none transition w-full">
+          </div>
+
+          <!-- Model Name -->
+          <div class="flex flex-col gap-1.5">
+            <label for="model-name" class="text-xs text-slate-300">模型名称 (Model Name)</label>
+            <input type="text" id="model-name" required placeholder="如: gpt-4o 或 claude-3-5-sonnet" class="bg-[#0b0f19] border border-white/10 focus:border-cyan-500/50 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none transition w-full">
+          </div>
+
+          <!-- API Key -->
+          <div class="flex flex-col gap-1.5">
+            <label for="model-apikey" class="text-xs text-slate-300">API Key</label>
+            <input type="password" id="model-apikey" required placeholder="请输入您的 API Key" class="bg-[#0b0f19] border border-white/10 focus:border-cyan-500/50 rounded-lg px-3 py-2 text-xs text-slate-100 focus:outline-none transition w-full">
+          </div>
+
+          <!-- 提交按钮 -->
+          <div class="mt-2 flex items-center justify-end gap-2">
+            <button type="button" id="btn-cancel-form" class="px-4 py-2 border border-white/10 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all text-xs cursor-pointer">取消</button>
+            <button type="submit" class="px-5 py-2 bg-gradient-to-r from-brand-teal to-brand-cyan text-white hover:from-teal-400 hover:to-cyan-400 rounded-lg font-medium shadow-md shadow-cyan-500/10 hover:shadow-cyan-500/25 active:scale-95 transition-all text-xs cursor-pointer">保存配置</button>
+          </div>
+        </form>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
