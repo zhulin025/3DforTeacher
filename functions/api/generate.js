@@ -17,7 +17,7 @@ export async function onRequestPost(context) {
     }
 
     const cleanKeyword = keyword.trim();
-    const modelId = modelConfig ? `${modelConfig.provider}:${modelConfig.modelName}` : 'built-in:gemini-2.5-flash';
+    const modelId = modelConfig ? modelConfig.modelName : 'gemini-2.5-flash';
     const cacheKey = `html:${modelId}:${cleanKeyword}`;
     const KV = env.AETHERVIZ_KV;
 
@@ -180,7 +180,7 @@ export async function onRequestGet(context) {
 async function runAsyncTask(taskId, keyword, modelConfig, env) {
   const KV = env.AETHERVIZ_KV;
   const taskKey = `task:${taskId}`;
-  const modelId = modelConfig ? `${modelConfig.provider}:${modelConfig.modelName}` : 'built-in:gemini-2.5-flash';
+  const modelId = modelConfig ? modelConfig.modelName : 'gemini-2.5-flash';
   const cacheKey = `html:${modelId}:${keyword}`;
   
   try {

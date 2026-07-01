@@ -692,7 +692,7 @@ function setupEventListeners() {
     const historyModelName = item.dataset.modelName;
 
     // 优先根据 provider + modelName 来精确寻找本地的配置
-    const matchedModel = models.find(m => m.provider === historyProvider && m.modelName === historyModelName);
+    const matchedModel = models.find(m => m.modelName === historyModelName);
     
     let activeConfigPayload = null;
 
