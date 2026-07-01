@@ -34,6 +34,12 @@ try {
   console.error("Error reading SKILL.md:", error);
 }
 
+const generationHistory = [];
+
+app.get("/api/history", (req, res) => {
+  res.json(generationHistory.slice(0, 30));
+});
+
 // 自定义模型接口调用助手
 async function callCustomModel(keyword, config) {
   const { provider, apiKey, baseURL, modelName } = config;
@@ -186,6 +192,17 @@ app.post("/api/generate", async (req, res) => {
       }
     }
     htmlContent = cleanedHtml.trim();
+
+    generationHistory.unshift({
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      keyword: keyword.trim(),
+      provider: modelConfig?.provider || "built-in",
+      modelName: modelConfig?.modelName || "gemini-2.5-flash",
+      createdAt: new Date().toISOString()
+    });
+    if (generationHistory.length > 100) {
+      generationHistory.length = 100;
+    }
 
     console.log(`生成成功！HTML 大小：${htmlContent.length} 字节`);
     res.json({ html: htmlContent });

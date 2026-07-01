@@ -140,12 +140,20 @@
           <div>
             <h2 class="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
               <i class="fa-solid fa-graduation-cap text-teal-400"></i>
-              <span>学科预设关键词</span>
+              <span>教材关键词库</span>
             </h2>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">点击下方学科卡片，快速生成最契合 3D/SVG 融合的精品交互演示。</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">按中国小学、初中、高中阶段筛选，点击关键词直接生成 3D/SVG 互动演示。</p>
           </div>
 
-          <!-- 学科分类标签 (Tab 切换) -->
+          <!-- 学段、年级、学科筛选 -->
+          <div class="grid grid-cols-3 gap-2" id="stage-tabs">
+            <!-- 动态生成 -->
+          </div>
+
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2" id="grade-tabs">
+            <!-- 动态生成 -->
+          </div>
+
           <div class="grid grid-cols-3 sm:grid-cols-4 gap-2" id="subject-tabs">
             <!-- 动态生成 -->
           </div>
@@ -389,6 +397,7 @@
     </div>
   </div>
 
+  <script src="curriculum-keywords.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

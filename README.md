@@ -1,108 +1,173 @@
 # AetherViz AI - 3D 教学可视化生成器网站
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-2.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.3.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Node.js-20+-green.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/Express-4.19-lightgrey.svg" alt="Express">
+  <img src="https://img.shields.io/badge/Cloudflare-Pages-orange.svg" alt="Cloudflare Pages">
   <img src="https://img.shields.io/badge/Three.js-r134-orange.svg" alt="Three.js">
   <img src="https://img.shields.io/badge/Tailwind-v3.4-cyan.svg" alt="Tailwind">
 </p>
 
-AetherViz AI 是一个面向教师、学生和教育工作者的全栈 Web 应用程序。它将大语言模型的 3D 教育可视化生成 Skill（AetherViz Master）转化为了一个高顏值、交互式的图形化网站。
+AetherViz AI 是一个面向教师的 3D 互动教学网页生成器。它把 `SKILL.md` 中的 AetherViz Master 教育可视化生成规范包装成网站：老师输入一个知识点关键词，或从中国 K12 教材关键词库中选择主题，系统会调用大语言模型生成一个可预览、可复制、可下载的单文件 HTML 互动课件。
 
-老师只需输入想要讲解的教学主题关键词，或者直接点击预设的学科卡片，系统就会调用主流的大语言模型，瞬间为您生成一个**零依赖、可在浏览器中直接运行的高清3D交互式教学网页**（单文件 HTML）。
-
----
-
-## ✨ 核心特性
-
-* **⚙️ 多模型自定义配置**：
-  * 支持在网页端自由添加、编辑和删除多个大模型（如 OpenAI GPT-4o、Claude 3.5 Sonnet、DeepSeek V3 等）。
-  * 所有的 API Key 和接口配置均完全本地存储在浏览器的 `LocalStorage` 中，**后端保持完全无状态**，保障隐私与密钥安全。
-* **🔌 双接口协议兼容**：
-  * 后端无状态代理完美兼容 **OpenAI 兼容协议** 和 **Anthropic 协议**，支持自定义 `Base URL`。
-  * 同时也向下兼容，在未配置前端模型时，可自动回退使用后端预设的 Gemini 2.5 Flash 接口。
-* **🧹 高精度源码提取**：
-  * 内置 HTML 文档边界提取算法，能够精准地从模型的输出中提取首尾 `<!DOCTYPE html>` 到 `</html>` 的核心段落，彻底过滤并清洗大模型附带输出的前言废话、思考文字及 markdown 代码块包装。
-* **⚛️ 3D 原子 Loading 动效**：
-  * 设计了具有丰富科技感与物理韵味的 3D 旋转原子加载遮罩，配合动态加载进度条与智能提示轮播，给用户极佳的生成等待体验。
-* **🖥️ 双栏式预览控制台**：
-  * 左栏提供模型切换、关键词输入和按学科（物理、化学、生物、数学、天文、编程）分类的预设关键词列表。
-  * 右栏以精美的浏览器 Mockup 窗口内嵌 `<iframe>` 渲染生成的 3D 页面，并提供「新窗口全屏交互」、「复制 HTML 源码」和「下载 lesson.html 文件」等辅助教学的操作按钮。
+当前版本为 `0.3.0`，重点加入了按中国小学、初中、高中教材知识点组织的关键词库，并支持按“学段 -> 年级 -> 学科”筛选后直接生成 3D/SVG 教学演示。
 
 ---
 
-## 🛠 技术栈
+## 核心能力
 
-| 层次 | 技术组件 | 作用与版本 |
-|------|----------|------------|
-| **前端** | Tailwind CSS | 提供现代化 UI 基础布局与栅格响应 |
-| | FontAwesome | 提供高质感的科技感图标集 |
-| | Google Fonts | 引入 `Outfit` 与 `Inter`  premium 字体家族 |
-| | CSS3/Vanilla JS | 实现 Glassmorphism 磨砂玻璃背景及 3D 原子自转动画 |
-| **后端** | Node.js / Express | 承载轻量级 Web 服务器与静态资源托管 |
-| | Fetch API | 原生实现接口转发代理，零多余依赖 |
-| | @google/generative-ai | 内置向后兼容的官方 Gemini API 驱动支持 |
+- **AetherViz Master Skill 驱动**：后端读取 `SKILL.md` 作为系统提示词，要求模型生成包含 Three.js、SVG、KaTeX、控制面板和测验面板的完整教学网页。
+- **中国 K12 教材关键词库**：`public/curriculum-keywords.js` 内置小学、初中、高中共 12 个年级的 3D 可视化候选知识点，覆盖数学、科学、物理、化学、生物、地理、信息科技/信息技术等学科。
+- **三级筛选体验**：首页支持按学段、年级、学科筛选关键词，点击关键词即可填入搜索框并开始生成。
+- **多模型配置**：前端支持在浏览器本地配置 OpenAI 兼容协议、Anthropic 协议和 DeepSeek 等自定义模型。API Key 仅保存在用户浏览器 `LocalStorage`。
+- **内置 Gemini 回退**：未配置前端模型时，后端可使用 `.env` 或部署环境中的 `GEMINI_API_KEY` 调用 Gemini 2.5 Flash。
+- **生成预览与导出**：生成结果在 sandbox iframe 中预览，支持复制 HTML、下载 HTML、新窗口全屏打开。
+- **本地与边缘部署兼容**：本地开发使用 Express `server.js`；Cloudflare Pages 部署使用 `functions/api/generate.js`、KV 缓存、异步任务和历史接口。
 
 ---
 
-## 🚀 快速启动
+## 0.3.0 更新内容
 
-### 1. 准备工作
-确保本地已安装 Node.js (建议 18.0.0 或更高版本)。
+- 新增 `public/curriculum-keywords.js` 教材关键词库。
+- 首页关键词区域从单层学科分类升级为“学段 -> 年级 -> 学科 -> 关键词”。
+- 关键词库当前包含 3 个学段、12 个年级、42 个年级内学科分组、176 个可生成关键词。
+- 前端兼容同步生成结果和 Cloudflare 异步任务结果。
+- 本地 Express 后端新增 `/api/history`，避免历史记录请求失败。
+- 修复 `public/app.js` 中一个多余大括号导致的脚本语法错误。
+- 统一项目版本号为 `0.3.0`。
 
-### 2. 克隆与安装依赖
+关键词库来源口径为教育部课程标准和主流教材公开目录的主题级归纳，只收录知识点标题和适合 3D 生成的简短说明，不复制教材正文。
+
+---
+
+## 快速启动
+
+### 1. 安装依赖
+
 ```bash
-# 进入项目目录
-cd 3DforTeacher
-
-# 安装必要的依赖包
 npm install
 ```
 
-### 3. 环境配置
-1. 复制配置文件模板：
-   ```bash
-   cp .env.example .env
-   ```
-2. 编辑 `.env` 文件，根据需要填入内置的 `GEMINI_API_KEY`（非必填，若填入，则默认的内置 Gemini 模型立即可用）：
-   ```env
-   PORT=3000
-   GEMINI_API_KEY=您的_GEMINI_API_KEY
-   ```
+### 2. 配置环境变量
 
-### 4. 启动服务
+复制环境变量模板：
+
 ```bash
-# 启动本地服务器
-npm run start
+cp .env.example .env
 ```
-服务启动后，在浏览器中访问 **`http://localhost:3000`** 即可开启您的 3D 教育之旅！
+
+按需填写：
+
+```env
+PORT=3000
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+`GEMINI_API_KEY` 不是必填。如果不配置，用户仍可在网页端添加自己的 OpenAI/Anthropic 兼容模型配置。
+
+### 3. 本地运行
+
+```bash
+npm start
+```
+
+访问：
+
+```text
+http://localhost:3000
+```
+
+开发模式：
+
+```bash
+npm run dev
+```
 
 ---
 
-## 📂 项目结构
+## Cloudflare Pages 部署
 
+项目也包含 Cloudflare Pages Functions 版本。
+
+### 构建 Skill 注入文件
+
+Cloudflare Functions 不能直接读取根目录 `SKILL.md`，需要先构建生成 `functions/api/skill.js`：
+
+```bash
+npm run build
 ```
+
+`functions/api/skill.js` 是生成文件，已被 `.gitignore` 忽略。
+
+### 本地 Pages 调试
+
+```bash
+npm run pages:dev
+```
+
+### KV 绑定
+
+`wrangler.jsonc` 中使用 `AETHERVIZ_KV` 作为 KV 绑定名。线上部署前需要在 Cloudflare Pages 项目中配置：
+
+- `AETHERVIZ_KV`
+- `GEMINI_API_KEY`，可选
+
+Cloudflare 版本会优先读 KV 缓存；未命中时创建异步生成任务，前端轮询 `/api/generate?taskId=...` 获取状态。
+
+---
+
+## 项目结构
+
+```text
 3DforTeacher/
-├── SKILL.md                  # AetherViz Master Skill 核心角色指令定义
-├── README.md                 # 项目使用指南
-├── package.json              # 项目依赖及启动脚本定义
-├── server.js                 # 后端 Express API 转发与静态托管
-├── .env.example              # 环境变量模板
-└── public/                   # 前端静态资源目录
-    ├── index.html            # 控制台主页 (响应式双栏布局)
-    ├── style.css             # 玻璃拟态及原子 Loading 动效样式
-    └── app.js                # 模型 LocalStorage 管理与 API 逻辑控制
+├── SKILL.md                         # AetherViz Master 生成规范
+├── README.md                        # 项目说明文档
+├── package.json                     # 依赖、版本和脚本
+├── package-lock.json                # 依赖锁定文件
+├── server.js                        # 本地 Express API 与静态资源服务
+├── build-skill.js                   # 将 SKILL.md 构建为 Cloudflare Functions 可导入模块
+├── wrangler.jsonc                   # Cloudflare Pages/KV 配置
+├── functions/
+│   └── api/
+│       ├── generate.js              # Cloudflare 生成接口、任务轮询、缓存逻辑
+│       └── history.js               # Cloudflare 历史记录接口
+└── public/
+    ├── index.html                   # Web 控制台页面
+    ├── style.css                    # 主题、玻璃拟态、加载动效样式
+    ├── app.js                       # 前端交互、模型配置、生成调用、历史记录
+    └── curriculum-keywords.js       # 中国 K12 教材关键词库
 ```
 
 ---
 
-## 🌐 线上部署指引
+## 生成流程
 
-1. **托管服务部署 (推荐使用 Railway / Zeabur / Render)**：
-   * 将代码提交到您的 GitHub 仓库。
-   * 在托管平台上关联仓库并导入项目，平台会自动识别 `package.json` 中的启动命令 `npm run start` 并拉起 Node.js 环境。
-2. **环境变量配置**：
-   * 在部署平台的 Environment Variables (环境变量) 设置里添加 `GEMINI_API_KEY` 变量，以便使内置 Gemini 选项能供所有线上用户默认直接使用。
-3. **前端多模型分发**：
-   * 如果用户想使用他们自己的 API 密钥生成 3D 页面，只需在网页端点击「配置」按钮添加他们自己的 OpenAI/Anthropic/DeepSeek API 配置即可。所有自定义数据均完全保存在用户浏览器本地，部署端无任何存储负担，极其安全。
+1. 老师输入关键词，或从教材关键词库中选择知识点。
+2. 前端读取当前选中的模型配置。
+3. 后端把关键词、模型配置和 `SKILL.md` 规范组合成生成请求。
+4. 模型返回完整 HTML。
+5. 后端清洗模型输出，提取 `<!DOCTYPE html>` 到 `</html>` 的页面源码。
+6. 前端将 HTML 注入 sandbox iframe 预览。
+7. 老师可以复制源码、下载 HTML 或新窗口全屏演示。
+
+---
+
+## 常用脚本
+
+```bash
+npm start       # 启动 Express 服务
+npm run dev     # Node watch 开发模式
+npm run build   # 生成 functions/api/skill.js
+npm run pages:dev
+```
+
+---
+
+## 安全与数据说明
+
+- `.env`、`node_modules`、`.wrangler` 和 Cloudflare 生成的 `functions/api/skill.js` 不进入 Git。
+- 自定义模型 API Key 存在浏览器本地，不会写入仓库。
+- 本地 Express 历史记录为内存数据，重启后清空。
+- Cloudflare 版本历史和缓存依赖 KV。
+- 生成的课件 HTML 来自大模型输出，生产环境建议继续使用 sandbox iframe、限流、缓存和 HTML 质量检测。

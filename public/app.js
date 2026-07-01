@@ -143,6 +143,8 @@ const TEMPLATES_DATA = {
 // DOM 元素引用
 const searchInput = document.getElementById('search-input');
 const generateBtn = document.getElementById('generate-btn');
+const stageTabs = document.getElementById('stage-tabs');
+const gradeTabs = document.getElementById('grade-tabs');
 const subjectTabs = document.getElementById('subject-tabs');
 const keywordGrid = document.getElementById('keyword-grid');
 const reloadIframeBtn = document.getElementById('reload-iframe-btn');
@@ -183,7 +185,10 @@ const historyCount = document.getElementById('history-count');
 const historyList = document.getElementById('history-list');
 
 // 全局变量缓存
-let activeSubjectId = 'physics';
+const CURRICULUM_DATA = window.CURRICULUM_KEYWORDS || null;
+let activeStageId = CURRICULUM_DATA?.stages?.[0]?.id || null;
+let activeGradeId = CURRICULUM_DATA?.stages?.[0]?.grades?.[0]?.id || null;
+let activeSubjectId = CURRICULUM_DATA?.stages?.[0]?.grades?.[0]?.subjects?.[0]?.id || 'physics';
 let currentGeneratedHtml = '';
 let currentBlobUrl = '';
 let loadingInterval = null;
@@ -194,8 +199,10 @@ let activeModelId = 'built-in-gemini';
 // 初始化函数
 function init() {
   initModels();
+  renderStageTabs();
+  renderGradeTabs();
   renderSubjectTabs();
-  renderKeywords(activeSubjectId);
+  renderKeywords();
   setupEventListeners();
   loadHistory();
 }
@@ -276,9 +283,85 @@ function renderSavedModelsList() {
   }).join('');
 }
 
+function getActiveStage() {
+  return CURRICULUM_DATA?.stages?.find(stage => stage.id === activeStageId) || null;
+}
+
+function getActiveGrade() {
+  return getActiveStage()?.grades?.find(grade => grade.id === activeGradeId) || null;
+}
+
+function getActiveSubject() {
+  if (CURRICULUM_DATA) {
+    return getActiveGrade()?.subjects?.find(subject => subject.id === activeSubjectId) || null;
+  }
+  return SUBJECTS_DATA.find(subject => subject.id === activeSubjectId) || null;
+}
+
+function ensureActiveGradeAndSubject() {
+  const stage = getActiveStage();
+  if (!stage) return;
+
+  if (!stage.grades.some(grade => grade.id === activeGradeId)) {
+    activeGradeId = stage.grades[0]?.id || null;
+  }
+
+  const grade = getActiveGrade();
+  if (!grade) return;
+
+  if (!grade.subjects.some(subject => subject.id === activeSubjectId)) {
+    activeSubjectId = grade.subjects[0]?.id || null;
+  }
+}
+
+// 渲染学段切换 Tab
+function renderStageTabs() {
+  if (!stageTabs || !CURRICULUM_DATA) return;
+
+  stageTabs.innerHTML = CURRICULUM_DATA.stages.map(stage => {
+    const isActive = stage.id === activeStageId;
+    return `
+      <button
+        data-id="${stage.id}"
+        class="tab-btn py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 text-xs font-medium cursor-pointer ${isActive ? 'active' : ''}"
+      >
+        <i class="fa-solid fa-layer-group text-brand-teal"></i>
+        <span>${stage.name}</span>
+      </button>
+    `;
+  }).join('');
+}
+
+// 渲染年级切换 Tab
+function renderGradeTabs() {
+  if (!gradeTabs || !CURRICULUM_DATA) return;
+
+  ensureActiveGradeAndSubject();
+  const stage = getActiveStage();
+  if (!stage) {
+    gradeTabs.innerHTML = '';
+    return;
+  }
+
+  gradeTabs.innerHTML = stage.grades.map(grade => {
+    const isActive = grade.id === activeGradeId;
+    return `
+      <button
+        data-id="${grade.id}"
+        class="tab-btn py-2 px-2 rounded-xl flex items-center justify-center gap-1 text-[11px] font-medium cursor-pointer ${isActive ? 'active' : ''}"
+      >
+        <span>${grade.name}</span>
+      </button>
+    `;
+  }).join('');
+}
+
 // 渲染学科切换 Tab
 function renderSubjectTabs() {
-  subjectTabs.innerHTML = SUBJECTS_DATA.map(subj => {
+  ensureActiveGradeAndSubject();
+  const subjects = CURRICULUM_DATA ? (getActiveGrade()?.subjects || []) : SUBJECTS_DATA;
+
+  subjectTabs.innerHTML = subjects.map(subj => {
     const isActive = subj.id === activeSubjectId;
     return `
       <button 
@@ -293,8 +376,8 @@ function renderSubjectTabs() {
 }
 
 // 渲染指定学科的关键词
-function renderKeywords(subjectId) {
-  const subject = SUBJECTS_DATA.find(s => s.id === subjectId);
+function renderKeywords() {
+  const subject = getActiveSubject();
   if (!subject) return;
 
   keywordGrid.innerHTML = subject.keywords.map(kw => `
@@ -302,8 +385,11 @@ function renderKeywords(subjectId) {
       data-keyword="${kw.name}"
       class="keyword-card p-3 rounded-xl cursor-pointer text-left flex flex-col justify-between"
     >
-      <div class="font-medium text-xs text-slate-200">${kw.name}</div>
-      <div class="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">${kw.desc}</div>
+      <div class="flex items-start justify-between gap-2">
+        <div class="font-medium text-xs text-slate-800 dark:text-slate-200">${kw.name}</div>
+        ${CURRICULUM_DATA ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-500 dark:text-cyan-300 shrink-0">${getActiveGrade()?.name || ''}</span>` : ''}
+      </div>
+      <div class="text-[10px] text-slate-500 dark:text-slate-400 mt-1 line-clamp-2 leading-relaxed">${kw.desc}</div>
     </div>
   `).join('');
 }
@@ -436,6 +522,35 @@ function loadModelToForm(modelId) {
 
 // 绑定事件监听
 function setupEventListeners() {
+  // 学段 Tab 点击事件
+  if (stageTabs) {
+    stageTabs.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab-btn');
+      if (!tab) return;
+
+      activeStageId = tab.dataset.id;
+      ensureActiveGradeAndSubject();
+      renderStageTabs();
+      renderGradeTabs();
+      renderSubjectTabs();
+      renderKeywords();
+    });
+  }
+
+  // 年级 Tab 点击事件
+  if (gradeTabs) {
+    gradeTabs.addEventListener('click', (e) => {
+      const tab = e.target.closest('.tab-btn');
+      if (!tab) return;
+
+      activeGradeId = tab.dataset.id;
+      ensureActiveGradeAndSubject();
+      renderGradeTabs();
+      renderSubjectTabs();
+      renderKeywords();
+    });
+  }
+
   // 学科 Tab 点击事件
   subjectTabs.addEventListener('click', (e) => {
     const tab = e.target.closest('.tab-btn');
@@ -444,10 +559,10 @@ function setupEventListeners() {
     const subjectId = tab.dataset.id;
     activeSubjectId = subjectId;
     
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    subjectTabs.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     tab.classList.add('active');
     
-    renderKeywords(subjectId);
+    renderKeywords();
   });
 
   // 关键词卡片点击事件
@@ -729,8 +844,14 @@ async function generate3DPage(keyword) {
     if (!response.ok) {
       throw new Error(data.error || '提交生成任务失败，请重试。');
     }
+
+    // 情况 A：后端同步返回生成结果
+    if (data.html) {
+      handleGenerationSuccess(keyword, data.html, Boolean(data.fromCache));
+      return;
+    }
     
-    // 情况 A：如果命中了缓存，直接同步处理结果
+    // 情况 B：如果命中了缓存，直接同步处理结果
     if (data.fromCache) {
       const htmlContent = data.html;
       if (!htmlContent) {
@@ -740,7 +861,7 @@ async function generate3DPage(keyword) {
       return;
     }
 
-    // 情况 B：创建了异步任务，开始轮询任务状态
+    // 情况 C：创建了异步任务，开始轮询任务状态
     if (data.taskId) {
       await pollTaskStatus(data.taskId, keyword);
     } else {
@@ -849,7 +970,6 @@ function handleGenerationError(error) {
   setTimeout(() => {
     resetLoadingState();
   }, 4500);
-}
 }
 
 // 模拟加载动画

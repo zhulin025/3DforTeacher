@@ -1,6 +1,6 @@
 {
   "name": "aetherviz-generator-web",
-  "version": "1.0.0",
+  "version": "0.3.0",
   "description": "3D Interactive Lesson Generator for Teachers, powered by AetherViz Master and Gemini API",
   "main": "server.js",
   "type": "module",
