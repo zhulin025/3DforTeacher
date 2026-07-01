@@ -674,7 +674,7 @@ function setupEventListeners() {
       return;
     }
 
-    // B. 常规历史载入卡片点击
+    // B. 常规历史载入卡片点击 (只读获取缓存 HTML，绝不调用大模型生成)
     const item = e.target.closest('.history-item');
     if (!item) return;
     
@@ -684,39 +684,69 @@ function setupEventListeners() {
       return;
     }
     
-    // 设置当前预览聚焦词为该历史记录
+    // 1. 设置当前预览聚焦词为该历史记录
     focusedKeyword = keyword;
+    searchInput.value = keyword;
     renderTasksAndHistoryMarkup(); // 刷新高亮状态
 
-    const historyProvider = item.dataset.provider;
     const historyModelName = item.dataset.modelName;
 
-    // 优先根据 provider + modelName 来精确寻找本地的配置
-    const matchedModel = models.find(m => m.modelName === historyModelName);
-    
-    let activeConfigPayload = null;
+    // 2. 状态栏载入中反馈
+    statusDot.className = 'inline-block w-2 h-2 rounded-full bg-amber-500 shadow-md shadow-amber-500/50';
+    statusText.innerText = `正在载入历史: ${keyword}...`;
 
-    if (matchedModel) {
-      activeModelId = matchedModel.id;
-      localStorage.setItem('aetherviz_active_model_id', activeModelId);
-      renderModelSelect();
-      
-      searchInput.value = keyword;
-      generate3DPage(keyword);
-    } else {
-      // 如果没有在本地配置里找到这个模型（比如用户把它彻底删除了）
-      // 我们直接构造一个临时的 override payload 发给后端，仅用于后端拼装出原本正确的 cacheKey 来命中缓存！
-      // 从而实现即使删除了模型或密钥，点击历史也绝对能秒速秒出，不重新生成！
-      activeConfigPayload = {
-        provider: historyProvider,
-        modelName: historyModelName,
-        apiKey: 'DUMMY_KEY_JUST_FOR_CACHE_HIT',
-        baseURL: historyProvider === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1'
-      };
-      
-      searchInput.value = keyword;
-      generate3DPage(keyword, activeConfigPayload);
-    }
+    // 3. 直接通过 GET 接口读取 KV 缓存，彻底绕过生成逻辑
+    fetch(`/api/history-content?modelName=${encodeURIComponent(historyModelName)}&keyword=${encodeURIComponent(keyword)}`)
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(err => { throw new Error(err.error || '未命中缓存') });
+        }
+        return response.json();
+      })
+      .then(data => {
+        // 如果在拉取期间用户已经切换到了其他词，直接丢弃结果防止覆盖
+        if (focusedKeyword !== keyword) return;
+
+        currentGeneratedHtml = data.html;
+        
+        if (currentBlobUrl) {
+          URL.revokeObjectURL(currentBlobUrl);
+        }
+        
+        const blob = new Blob([data.html], { type: 'text/html;charset=utf-8' });
+        currentBlobUrl = URL.createObjectURL(blob);
+        
+        previewIframe.src = currentBlobUrl;
+        previewIframe.classList.remove('opacity-0');
+        
+        // 更新界面状态
+        previewUrl.innerText = `aetherviz://lesson/${encodeURIComponent(keyword)}`;
+        statusDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50';
+        statusText.innerText = `已展示(历史): ${keyword}`;
+        
+        // 启用操作按钮
+        btnCopy.disabled = false;
+        btnFullscreen.disabled = false;
+        btnDownload.disabled = false;
+        
+        // 隐藏 Loading 并重置状态
+        if (loadingOverlay && !loadingOverlay.classList.contains('hidden')) {
+          welcomeOverlay.classList.add('hidden');
+          loadingOverlay.style.opacity = '0';
+          setTimeout(() => {
+            loadingOverlay.classList.add('hidden');
+          }, 300);
+        }
+      })
+      .catch(err => {
+        console.error('拉取历史网页失败:', err);
+        if (focusedKeyword !== keyword) return;
+
+        statusDot.className = 'inline-block w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50';
+        statusText.innerText = `载入失败: 缓存已失效`;
+        
+        alert(`该历史网页（使用模型: ${historyModelName}）的底层缓存内容已失效（已被系统自动清理）。\n如果您想重新浏览它，请在输入框确认该主题，直接点击“生成”按钮重新唤醒 AI 为您构建！`);
+      });
   });
 
   // 输入框回车生成
