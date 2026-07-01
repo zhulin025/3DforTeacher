@@ -610,6 +610,125 @@ window.CURRICULUM_KEYWORDS = {
           ]
         }
       ]
+    },
+    {
+      id: "university",
+      name: "大学",
+      grades: [
+        {
+          id: "u1",
+          name: "公共基础课",
+          subjects: [
+            {
+              id: "math",
+              name: "数学",
+              icon: "fa-calculator",
+              color: "from-amber-500 to-yellow-500",
+              keywords: [
+                { name: "微积分极限定义", desc: "用ε-δ定义动态演示极限逼近与收敛过程" },
+                { name: "泰勒展开逼近", desc: "动态展示多项式对正弦、指数等超越函数的逼近过程" },
+                { name: "多元函数偏导与鞍点", desc: "3D绘制马鞍面，演示偏导数、梯度及鞍点位置" },
+                { name: "空间曲面积分", desc: "3D展示曲面积分的微元分割与物理意义" }
+              ]
+            },
+            {
+              id: "physics",
+              name: "物理",
+              icon: "fa-atom",
+              color: "from-blue-500 to-cyan-500",
+              keywords: [
+                { name: "阻尼与受迫振动", desc: "斜面滑块、阻尼振动与相空间轨迹模拟" },
+                { name: "电场线与等势面", desc: "动态展示点电荷、电偶极子的3D电场分布与等势面变化" },
+                { name: "麦克斯韦速率分布", desc: "演示理想气体分子在不同温度下的速率分布与碰撞过程" },
+                { name: "刚体定轴转动与陀螺进动", desc: "演示转动惯量、角动量守恒与陀螺进动效应" }
+              ]
+            }
+          ]
+        },
+        {
+          id: "u2",
+          name: "专业基础课",
+          subjects: [
+            {
+              id: "math",
+              name: "数学",
+              icon: "fa-calculator",
+              color: "from-amber-500 to-yellow-500",
+              keywords: [
+                { name: "矩阵线性变换", desc: "3D空间中向量网格在矩阵乘法下的剪切、拉伸与旋转" },
+                { name: "特征值与特征向量", desc: "3D演示变换中方向保持不变的向量及空间缩放" },
+                { name: "施密特正交化", desc: "动态展示基向量投影、逐步正交化与单位化的几何过程" }
+              ]
+            },
+            {
+              id: "physics",
+              name: "物理",
+              icon: "fa-atom",
+              color: "from-blue-500 to-cyan-500",
+              keywords: [
+                { name: "电磁波传播与极化", desc: "3D演示线极化、圆极化电磁波在介质中的传播与电场矢量旋转" },
+                { name: "LC振荡与电磁辐射", desc: "电容电感电荷交替变化与电磁波发射微观过程" }
+              ]
+            },
+            {
+              id: "biology",
+              name: "生物",
+              icon: "fa-dna",
+              color: "from-emerald-500 to-teal-500",
+              keywords: [
+                { name: "蛋白质三级结构", desc: "3D演示α螺旋、β折叠及其疏水键维持的折叠结构" },
+                { name: "酶的诱导契合学说", desc: "底物与酶活性中心结合时的构象改变与催化机制" }
+              ]
+            },
+            {
+              id: "information",
+              name: "信息技术",
+              icon: "fa-code",
+              color: "from-teal-500 to-cyan-500",
+              keywords: [
+                { name: "红黑树旋转与平衡", desc: "红黑树插入节点后的变色、左旋和右旋调整过程" },
+                { name: "Dijkstra最短路径算法", desc: "图结构中松弛操作与最短路径树生成的动态过程" }
+              ]
+            }
+          ]
+        },
+        {
+          id: "u3",
+          name: "专业前沿与应用",
+          subjects: [
+            {
+              id: "information",
+              name: "信息技术",
+              icon: "fa-code",
+              color: "from-teal-500 to-cyan-500",
+              keywords: [
+                { name: "光线追踪算法", desc: "动态展示光线从相机发出，经过反射、折射与阴影光线击中光源的追踪路径" },
+                { name: "卷积神经网络特征图", desc: "3D展示图像经过卷积核滑动、激活、池化后多通道特征图的提取过程" }
+              ]
+            },
+            {
+              id: "physics",
+              name: "物理",
+              icon: "fa-atom",
+              color: "from-blue-500 to-cyan-500",
+              keywords: [
+                { name: "氢原子电子云轨道", desc: "3D绘制s, p, d轨道的概率密度分布与波函数角度部分" },
+                { name: "布洛赫球面与量子比特", desc: "演示超导或自旋量子比特在布洛赫球面上的自旋进动与测量坍缩" }
+              ]
+            },
+            {
+              id: "geography",
+              name: "地理",
+              icon: "fa-earth-asia",
+              color: "from-sky-500 to-indigo-500",
+              keywords: [
+                { name: "多源GIS图层叠加", desc: "3D展示地形、路网、水系、人口密度图层的层叠分析与空间查询" },
+                { name: "厄尔尼诺与拉尼娜现象", desc: "太平洋赤道海温异常、沃克环流异动及其全球气候效应模拟" }
+              ]
+            }
+          ]
+        }
+      ]
     }
   ]
 };
