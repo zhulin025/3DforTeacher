@@ -433,6 +433,7 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
     let statusBadge = '';
     let statusClass = '';
     let titleAttr = '';
+    const isFocused = task.keyword === focusedKeyword;
     
     if (task.status === 'pending') {
       statusBadge = `
@@ -470,13 +471,16 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
       titleAttr = `失败原因: ${task.error || '未知错误'}，点击右侧按钮可发起重试`;
     }
     
+    const activeBorderClass = isFocused ? 'border-cyan-500 bg-[var(--card-hover-bg)] active-history' : 'border-transparent';
+    
     return `
       <div 
-        class="history-item p-2.5 rounded-xl border flex items-center justify-between gap-2 text-left select-none transition ${statusClass}"
+        data-active-task-id="${task.id}"
+        class="history-item p-2.5 rounded-xl border cursor-pointer flex items-center justify-between gap-2 text-left select-none transition ${statusClass} ${activeBorderClass}"
         title="${titleAttr}"
       >
         <div class="flex-1 min-w-0 pr-1">
-          <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">${task.keyword}</div>
+          <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate ${isFocused ? 'text-cyan-400 font-bold' : ''}">${task.keyword}</div>
           <div class="text-[9px] text-slate-500 mt-0.5 truncate">
             <span>使用模型: ${task.modelName}</span>
           </div>
@@ -504,7 +508,7 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
         data-provider="${item.provider}"
         data-model-id="${expectedId}"
         data-model-name="${item.modelName}"
-        class="history-item p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 text-left border border-transparent transition ${isFocused ? 'bg-[var(--card-hover-bg)] border-[var(--card-hover-border)] active-history' : 'hover:bg-slate-500/5'}"
+        class="history-item group p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 text-left border border-transparent transition ${isFocused ? 'bg-[var(--card-hover-bg)] border-[var(--card-hover-border)] active-history' : 'hover:bg-slate-500/5'}"
         title="点击载入该 3D 页面"
       >
         <div class="flex-1 min-w-0 pr-1">
@@ -515,9 +519,19 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
             <span>${timeStr}</span>
           </div>
         </div>
-        ${isCurrentModelMatch ? `
-          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-md shadow-cyan-400/50" title="当前模型与此历史匹配"></span>
-        ` : ''}
+        <div class="flex items-center gap-1.5 min-w-[14px] justify-end">
+          ${isCurrentModelMatch ? `
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-md shadow-cyan-400/50 group-hover:hidden" title="当前模型与此历史匹配"></span>
+          ` : ''}
+          <button 
+            type="button" 
+            class="delete-history-btn hidden group-hover:flex p-1 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 hover:text-rose-600 transition cursor-pointer items-center justify-center" 
+            data-id="${item.id}" 
+            title="删除此条历史记录"
+          >
+            <i class="fa-solid fa-trash text-[9px]"></i>
+          </button>
+        </div>
       </div>
     `;
   }).join('');
@@ -674,13 +688,76 @@ function setupEventListeners() {
       return;
     }
 
-    // B. 常规历史载入卡片点击 (只读获取缓存 HTML，绝不调用大模型生成)
+    // A2. 检测是否点击了删除历史按钮
+    const deleteBtn = e.target.closest('.delete-history-btn');
+    if (deleteBtn) {
+      e.stopPropagation();
+      const itemId = deleteBtn.dataset.id;
+      if (confirm('确认删除此条历史记录及底层的网页缓存吗？')) {
+        fetch(`/api/history?id=${encodeURIComponent(itemId)}`, {
+          method: 'DELETE'
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              const deletedItem = e.target.closest('.history-item');
+              if (deletedItem && deletedItem.dataset.keyword === focusedKeyword) {
+                focusedKeyword = '';
+                currentGeneratedHtml = '';
+                if (currentBlobUrl) {
+                  URL.revokeObjectURL(currentBlobUrl);
+                  currentBlobUrl = '';
+                }
+                previewIframe.src = 'about:blank';
+                previewIframe.classList.add('opacity-0');
+                resetLoadingState();
+              }
+              loadHistory();
+            } else {
+              alert('删除失败：' + (data.error || '未知错误'));
+            }
+          })
+          .catch(err => {
+            console.error('删除历史记录失败:', err);
+            alert('删除历史时发生网络错误。');
+          });
+      }
+      return;
+    }
+
+    // B. 常规历史载入与活动任务卡片点击
     const item = e.target.closest('.history-item');
     if (!item) return;
     
+    // 如果点击的是正在生成中或失败的活动任务
+    const activeTaskId = item.dataset.activeTaskId;
+    if (activeTaskId) {
+      const task = activeTasks.find(t => t.id === activeTaskId);
+      if (task) {
+        focusedKeyword = task.keyword;
+        searchInput.value = task.keyword;
+        renderTasksAndHistoryMarkup(); // 刷新高亮
+        
+        if (task.status === 'pending' || task.status === 'processing') {
+          // 立刻展示正在生成中的蒙层，保障进度条可见
+          welcomeOverlay.classList.add('hidden');
+          loadingOverlay.classList.remove('hidden');
+          loadingOverlay.style.opacity = '1';
+          
+          // 根据状态提示
+          const statusTextStr = task.status === 'pending' ? '排队中' : '大模型推理中';
+          loadingTitle.innerText = `[${statusTextStr}] 正在生成: ${task.keyword}`;
+          startLoadingSimulation(task.keyword); // 同步进度模拟
+        } else if (task.status === 'failed') {
+          // 如果点击了已失败的任务，切换并报错展示
+          handleGenerationError(new Error(task.error || '生成任务执行失败。'));
+        }
+      }
+      return;
+    }
+    
     const keyword = item.dataset.keyword;
     if (!keyword) {
-      // 正在生成或已失败的任务，尚未具备预览内容，忽略其整体点击
       return;
     }
     

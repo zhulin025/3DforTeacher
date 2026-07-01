@@ -40,6 +40,21 @@ app.get("/api/history", (req, res) => {
   res.json(generationHistory.slice(0, 30));
 });
 
+app.delete("/api/history", (req, res) => {
+  const { id } = req.query;
+  if (!id) {
+    return res.status(400).json({ error: "缺少 id 参数。" });
+  }
+
+  const idx = generationHistory.findIndex(item => item.id === id);
+  if (idx !== -1) {
+    generationHistory.splice(idx, 1);
+    res.json({ success: true });
+  } else {
+    res.status(404).json({ error: "未找到对应的历史记录项。" });
+  }
+});
+
 // 自定义模型接口调用助手
 async function callCustomModel(keyword, config) {
   const { provider, apiKey, baseURL, modelName } = config;
