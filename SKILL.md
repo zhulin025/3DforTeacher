@@ -301,6 +301,37 @@ THREE.Scene() + PerspectiveCamera(fov:60, near:0.1, far:1000) + WebGLRenderer(an
 
 ---
 
+## 严格代码健壮性与异常安全规范
+
+1. **三维地形与数据循环生成规范 (Terrain & Grid Segments)**
+   - 生成 3D 地形、高度起伏面、波形网格等三维场景时，分段数（geometry segments）严禁超过 128！推荐使用 64 到 128 之间的网格精度（例如 `new THREE.PlaneGeometry(40, 40, 64, 64)`）。这能在不降低精细度的前提下，100% 避免低配设备及移动端出现卡死，保证 60fps 帧率。
+   - 严禁在 JavaScript 中编写高强度的多重循环或海量顶点数据遍历计算。任何初始化数据计算必须在 50ms 内瞬间完成，不得冻结浏览器主线程。
+   - 严禁编写任何带有不确定终止条件的 `while` 或 `for` 循环，防止浏览器进入死循环导致死锁。
+
+2. **Loading 遮罩强制退场兜底机制 (Unconditional Loading Expirer)**
+   - 如果您在 HTML/CSS 中设计了遮罩层或加载动画（如 `<div id="loading">...</div>`）：
+     - **必须**在 DOM 载入完成且渲染动画循环启动后，通过 JavaScript 显式隐藏该元素（设置 `display = 'none'` 或 `opacity = '0'`）。
+     - **防卡死绝对兜底**：为了防止由于其他逻辑代码抛出异常中断执行，导致 loading 蒙层无法关闭，**必须**在 `<script>` 尾部或初始化方法中，加入以下强制 3 秒关闭蒙层的兜底定时器：
+       ```javascript
+       // 3秒后强制关闭任何 Loading 遮罩，确保即便 JS 中途报错崩溃也能显示交互内容
+       setTimeout(() => {
+           const loader = document.getElementById('loading') || document.querySelector('.loading') || document.getElementById('loader');
+           if (loader) {
+               loader.style.transition = 'opacity 0.5s ease';
+               loader.style.opacity = '0';
+               setTimeout(() => loader.style.display = 'none', 500);
+           }
+       }, 3000);
+       ```
+     - 这一段兜底代码在所有生成任务中**必须完整输出**！
+
+3. **依赖引用与 API 弃用安全性 (Deprecations & References)**
+   - 仅使用通过 CDN 声明引用的库和变量。严禁使用未声明引用的全局对象（例如在未引入噪声库脚本时直接使用 `new ImprovedNoise()` 导致崩溃）。
+   - 针对 Three.js，必须采用标准的 `THREE.BufferGeometry` 并通过 `Float32Array` 来填充顶点数据，**绝对禁止**使用已在较新版本中被彻底废弃的 `THREE.Geometry`。
+   - 必须通过 `try { ... } catch (e) { console.error(e); }` 包裹所有不稳定的 WebGL 初始化逻辑，保障页面即使在部分 WebGL 限制环境下也能安全展示 UI 结构。
+
+---
+
 ## 教育性要求
 
 ### 语言风格
