@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
     <style>
+        html, body { height: 100%; }
         :root { --accent: #6366f1; --accent-soft: rgba(99,102,241,0.25); }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #e2e8f0; }
@@ -25,11 +26,11 @@
         .play-btn:hover { filter: brightness(1.08); }
     </style>
 </head>
-<body class="bg-[#eef2f7] text-slate-900 min-h-screen flex flex-col overflow-hidden font-sans">
-    <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+<body class="bg-[#eef2f7] text-slate-900 h-screen flex flex-col overflow-hidden font-sans">
+    <main class="flex-1 min-h-0 flex flex-col lg:flex-row overflow-hidden relative">
 
         <!-- 3D Viewport -->
-        <div class="flex-1 relative bg-[#eef2f7] flex flex-col min-h-[45vh]">
+        <div class="flex-1 min-h-0 relative bg-[#eef2f7] flex flex-col lg:min-h-0 min-h-[45vh]">
             <div id="labels-overlay" class="absolute inset-0 pointer-events-none z-20 overflow-hidden"></div>
             <div id="canvas-container" class="flex-1 w-full h-full cursor-grab active:cursor-grabbing"></div>
 
@@ -57,7 +58,7 @@
         </div>
 
         <!-- Right panel -->
-        <div class="w-full lg:w-[480px] shrink-0 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col overflow-y-auto">
+        <div class="w-full lg:w-[480px] shrink-0 bg-white border-t lg:border-t-0 lg:border-l border-slate-200 flex flex-col min-h-0 h-[55vh] lg:h-full overflow-y-auto overscroll-contain">
 
             <div class="p-6 border-b border-slate-200 bg-slate-50">
                 <h1 id="title" class="text-lg font-bold tracking-wide text-slate-900">化学反应 3D 虚拟实验室</h1>
