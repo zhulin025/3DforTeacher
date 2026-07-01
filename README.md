@@ -1,7 +1,7 @@
 # AetherViz AI - 3D 教学可视化生成器网站
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.3.0-blue.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.4.0-blue.svg" alt="Version">
   <img src="https://img.shields.io/badge/Node.js-20+-green.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/Express-4.19-lightgrey.svg" alt="Express">
   <img src="https://img.shields.io/badge/Cloudflare-Pages-orange.svg" alt="Cloudflare Pages">
@@ -11,7 +11,24 @@
 
 AetherViz AI 是一个面向教师的 3D 互动教学网页生成器。它把 `SKILL.md` 中的 AetherViz Master 教育可视化生成规范包装成网站：老师输入一个知识点关键词，或从中国 K12 教材关键词库中选择主题，系统会调用大语言模型生成一个可预览、可复制、可下载的单文件 HTML 互动课件。
 
-当前版本为 `0.3.0`，重点加入了按中国小学、初中、高中教材知识点组织的关键词库，并支持按“学段 -> 年级 -> 学科”筛选后直接生成 3D/SVG 教学演示。
+当前版本为 `0.4.0`，重点优化了高负荷生成场景下的稳定性、历史缓存检索兼容性、多任务并行体验，并大幅升级了 3D 课件防卡死防报错的健壮性。
+
+---
+
+## 0.4.0 更新内容 (重大架构升级)
+
+### 🚀 稳定性与架构优化
+- **双通道大模型生成管线**：重构大模型请求架构。自定义模型改由前端浏览器发起 fetch 直连，完全绕过 Cloudflare 边缘端 30 秒执行时长限制与 waitUntil 扼杀，保障超长 3D 代码生成绝不超时；内置模型继续由后端轻量代理。
+- **历史预览与生成物理割裂**：引入只读 `GET /api/history-content` 接口。点击历史记录直接拉取 KV 缓存进行展示，彻底割裂生成管线，不再匹配任何本地模型或 API 密钥配置，即使配置被删也 100% 秒速无感载入。
+- **新老缓存 Key 兼容与平滑迁移**：缓存 Key 脱离 provider 限制（由 `modelName` 唯一决定以在多代理间共用缓存），并支持对老格式 `cacheKey` 进行向前兼容检索，且在命中的瞬间**自动无感在后台升级为新格式**，彻底复活所有老旧历史记录。
+- **GitHub 自动部署集成**：完成了云端 Pages 与 GitHub 自动集成的绑定，本地仅需 `git push` 到 `main` 分支即可自动激活 CI/CD 云端构建上线。
+
+### 🎨 体验与健壮性升级
+- **防卡死 Loading 强制关闭兜底 (Critical Expirer)**：在 `SKILL.md` 核心规范中注入强制退场铁律。大模型生成任何遮罩层时必须附加 3s 自动淡出隐藏定时器，确保即便 Three.js 在初始化时因为某些 WebGL 异常报错，也能在 3 秒后强制隐藏 Loading 展示 UI。
+- **3D 地形几何精度上限约束**：限制大模型生成地形的分段数（geometry segments）上限为 128，从根本上防止因过度多重循环导致的浏览器卡死挂起。
+- **2D/SVG 可视化课件兼容**：拓宽了后端的网页质量体检规则，兼容检查 D3.js 2D 依赖库与 SVG 交互元素，保障数学几何等非 3D 页面顺利通过校验，免遭打回。
+- **多任务并行生成与融合队列**：支持在后台进行多通道非阻塞生成，可在生成期间继续进行页面操作、预设词选择等；在左侧历史卡片中感知并融合呈现排队中/生成中进度，支持失败任务一键重试。
+- **白天模式高对比度微调**：为白天模式下的预设关键词卡片调配高对比度字色（纯黑色），极大地提升了日光环境下的可读性。
 
 ---
 
