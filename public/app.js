@@ -501,6 +501,7 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
     return `
       <div 
         data-keyword="${item.keyword}"
+        data-provider="${item.provider}"
         data-model-id="${expectedId}"
         data-model-name="${item.modelName}"
         class="history-item p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 text-left border border-transparent transition ${isFocused ? 'bg-[var(--card-hover-bg)] border-[var(--card-hover-border)] active-history' : 'hover:bg-slate-500/5'}"
@@ -687,21 +688,35 @@ function setupEventListeners() {
     focusedKeyword = keyword;
     renderTasksAndHistoryMarkup(); // 刷新高亮状态
 
-    const historyModelId = item.dataset.modelId;
+    const historyProvider = item.dataset.provider;
     const historyModelName = item.dataset.modelName;
 
-    // 尝试匹配本地是否依然拥有该模型的配置
-    const matchedModel = models.find(m => m.id === historyModelId);
+    // 优先根据 provider + modelName 来精确寻找本地的配置
+    const matchedModel = models.find(m => m.provider === historyProvider && m.modelName === historyModelName);
+    
+    let activeConfigPayload = null;
+
     if (matchedModel) {
-      activeModelId = historyModelId;
+      activeModelId = matchedModel.id;
       localStorage.setItem('aetherviz_active_model_id', activeModelId);
       renderModelSelect();
+      
+      searchInput.value = keyword;
+      generate3DPage(keyword);
     } else {
-      alert(`提示：生成该历史网页所用的模型 [${historyModelName}] 的本地密钥配置已被修改或删除，将使用当前下拉框选中的模型尝试渲染。`);
+      // 如果没有在本地配置里找到这个模型（比如用户把它彻底删除了）
+      // 我们直接构造一个临时的 override payload 发给后端，仅用于后端拼装出原本正确的 cacheKey 来命中缓存！
+      // 从而实现即使删除了模型或密钥，点击历史也绝对能秒速秒出，不重新生成！
+      activeConfigPayload = {
+        provider: historyProvider,
+        modelName: historyModelName,
+        apiKey: 'DUMMY_KEY_JUST_FOR_CACHE_HIT',
+        baseURL: historyProvider === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1'
+      };
+      
+      searchInput.value = keyword;
+      generate3DPage(keyword, activeConfigPayload);
     }
-
-    searchInput.value = keyword;
-    generate3DPage(keyword);
   });
 
   // 输入框回车生成
@@ -891,27 +906,38 @@ function setupEventListeners() {
 
 
 // 核心生成逻辑（非阻塞，支持多任务并行生成）
-async function generate3DPage(keyword) {
+async function generate3DPage(keyword, overrideModelConfig = null) {
   const cleanKeyword = keyword.trim();
   if (!cleanKeyword) return;
   
-  // 1. 设置当前正处于聚焦关注的词
+  // 1. 设置当前正处于聚焦关注 the 词
   focusedKeyword = cleanKeyword;
 
-  // 2. 获取当前选中的模型配置，生成临时活动任务对象
+  // 2. 决定要发送的模型配置与显示别名
   const activeModel = models.find(m => m.id === activeModelId);
   const isBuiltIn = activeModelId === 'built-in-gemini';
   
-  const task = {
-    id: 'task-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
-    keyword: cleanKeyword,
-    modelName: activeModel ? activeModel.alias.substring(0, 15) : '内置 Gemini',
-    modelConfig: isBuiltIn ? null : {
+  let modelConfigToSend = null;
+  let modelNameDisplay = '内置 Gemini';
+  
+  if (overrideModelConfig) {
+    modelConfigToSend = overrideModelConfig;
+    modelNameDisplay = overrideModelConfig.modelName;
+  } else if (activeModel && activeModel.id !== 'built-in-gemini') {
+    modelConfigToSend = {
       provider: activeModel.provider,
       apiKey: activeModel.apiKey,
       baseURL: activeModel.baseURL,
       modelName: activeModel.modelName
-    },
+    };
+    modelNameDisplay = activeModel.alias.substring(0, 15);
+  }
+  
+  const task = {
+    id: 'task-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    keyword: cleanKeyword,
+    modelName: modelNameDisplay,
+    modelConfig: modelConfigToSend,
     status: 'pending',
     error: null,
     taskId: null
