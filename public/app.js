@@ -982,63 +982,163 @@ async function generate3DPage(keyword, overrideModelConfig = null) {
   triggerTaskGeneration(task);
 }
 
-// 触发单个任务的后端生成请求
+// 触发单个任务的后端生成或前端直连请求
 async function triggerTaskGeneration(task) {
-  const payload = { keyword: task.keyword };
-  if (task.modelConfig) {
-    payload.modelConfig = task.modelConfig;
-  }
-
   // 仅在当前聚焦的词是该任务，且 iframe 预览为空时，才显示大原子 Loading
   if (focusedKeyword === task.keyword && !currentBlobUrl) {
     welcomeOverlay.classList.add('hidden');
     loadingOverlay.classList.remove('hidden');
     loadingOverlay.style.opacity = '1';
     startLoadingSimulation(task.keyword);
-    loadingTitle.innerText = `[队列排队中...] 正在生成: ${task.keyword}`;
+    loadingTitle.innerText = `[排队生成中...] 正在生成: ${task.keyword}`;
   }
 
-  try {
-    const response = await fetch('/api/generate', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    
-    const data = await response.json();
-    
-    if (!response.ok) {
-      throw new Error(data.error || '提交任务失败。');
-    }
-    
-    // 情况 A：如果命中了缓存，直接同步处理结果，并从活动任务移除
-    if (data.fromCache) {
-      activeTasks = activeTasks.filter(t => t.id !== task.id);
-      handleGenerationSuccess(task.keyword, data.html, true);
-      await loadHistory();
-      return;
-    }
+  if (!task.modelConfig) {
+    // ---------------- 情况 A：内置模型，继续走后端边缘任务代理 ----------------
+    try {
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ keyword: task.keyword })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || '提交任务失败。');
+      }
+      
+      // A1：如果命中了缓存，直接同步处理结果，并从活动任务移除
+      if (data.fromCache) {
+        activeTasks = activeTasks.filter(t => t.id !== task.id);
+        handleGenerationSuccess(task.keyword, data.html, true);
+        await loadHistory();
+        return;
+      }
 
-    // 情况 B：获取到了边缘端创建的异步任务 ID，开启轮询
-    if (data.taskId) {
-      task.taskId = data.taskId;
-      task.status = 'pending';
+      // A2：获取到了边缘端创建的异步任务 ID，开启轮询
+      if (data.taskId) {
+        task.taskId = data.taskId;
+        task.status = 'pending';
+        renderTasksAndHistoryMarkup();
+        await pollTaskStatus(task);
+      } else {
+        throw new Error('未获取到边缘生成任务的有效 ID。');
+      }
+      
+    } catch (error) {
+      task.status = 'failed';
+      task.error = error.message;
       renderTasksAndHistoryMarkup();
-      await pollTaskStatus(task);
-    } else {
-      throw new Error('未获取到边缘生成任务的有效 ID。');
+      
+      // 若当前聚焦的依然是该词，则反馈错误至主页面蒙层
+      if (focusedKeyword === task.keyword) {
+        handleGenerationError(error);
+      }
     }
-    
-  } catch (error) {
-    task.status = 'failed';
-    task.error = error.message;
-    renderTasksAndHistoryMarkup();
-    
-    // 若当前聚焦的依然是该词，则反馈错误至主页面蒙层
-    if (focusedKeyword === task.keyword) {
-      handleGenerationError(error);
+  } else {
+    // ---------------- 情况 B：自定义模型，由前端浏览器发起直连，彻底杜绝 30s 边缘超时 ----------------
+    try {
+      task.status = 'processing';
+      renderTasksAndHistoryMarkup();
+      if (focusedKeyword === task.keyword) {
+        loadingTitle.innerText = `[大模型推理中...] 正在生成: ${task.keyword}`;
+      }
+
+      // B1. 获取最新编译的系统提示词规范
+      const skillRes = await fetch('/api/skill-prompt');
+      if (!skillRes.ok) {
+        throw new Error('无法从服务器获取 AetherViz 核心提示词规范。');
+      }
+      const skillData = await skillRes.json();
+      const sysInstruction = skillData.prompt;
+
+      // B2. 构造大模型 API 请求体
+      const { provider, apiKey, baseURL, modelName } = task.modelConfig;
+      let apiBase = baseURL.trim();
+      if (!apiBase.endsWith('/')) {
+        apiBase += '/';
+      }
+      const completionUrl = apiBase + 'chat/completions';
+
+      const payload = {
+        model: modelName,
+        messages: [
+          { role: 'system', content: sysInstruction },
+          { role: 'user', content: `教学主题："${task.keyword}"。请为该主题生成一个可在浏览器中直接运行的高清3D交互式教学网页。` }
+        ],
+        temperature: 0.2
+      };
+
+      // B3. 浏览器直连发起生成，拥有极佳的连接稳定性与无限制超时
+      const modelRes = await fetch(completionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!modelRes.ok) {
+        const errText = await modelRes.text();
+        let hint = modelRes.statusText;
+        try {
+          const errObj = JSON.parse(errText);
+          hint = errObj.error?.message || errObj.error || hint;
+        } catch(e) {}
+        throw new Error(`模型接口返回错误 [${modelRes.status}]: ${hint}`);
+      }
+
+      const modelData = await modelRes.json();
+      if (!modelData.choices || modelData.choices.length === 0) {
+        throw new Error('自定义大模型未能返回有效的 choices 内容。');
+      }
+
+      const rawHtml = modelData.choices[0].message.content;
+      if (!rawHtml) {
+        throw new Error('自定义大模型输出的 HTML 内容为空。');
+      }
+
+      // B4. 在前端对内容进行提取、清洗与软校验修补
+      const cleanedHtml = cleanAndExtractHtml(rawHtml);
+      const valResult = validateAndRepairHtmlFront(cleanedHtml);
+      if (!valResult.valid) {
+        throw new Error(`网页质量检测未通过: ${valResult.reason}`);
+      }
+
+      const finalHtml = valResult.repairedHtml;
+
+      // B5. 异步调用后端轻量接口，保存结果至 KV 缓存与历史，实现无感元数据同步
+      await fetch('/api/save-cache', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          keyword: task.keyword,
+          modelName: modelName,
+          provider: provider,
+          html: finalHtml
+        })
+      });
+
+      // B6. 移除任务，加载展示
+      activeTasks = activeTasks.filter(t => t.id !== task.id);
+      handleGenerationSuccess(task.keyword, finalHtml, false);
+      await loadHistory();
+
+    } catch (error) {
+      console.error('前端直连大模型生成失败:', error);
+      task.status = 'failed';
+      task.error = error.message;
+      renderTasksAndHistoryMarkup();
+      
+      if (focusedKeyword === task.keyword) {
+        handleGenerationError(error);
+      }
     }
   }
 }
@@ -1264,3 +1364,97 @@ function resetLoadingState() {
 
 // 页面加载完成后启动
 window.addEventListener('DOMContentLoaded', init);
+
+// 前端清洗函数：移除可能存在的 markdown 包裹
+function cleanAndExtractHtml(text) {
+  let cleaned = text.trim();
+  
+  // 提取 ```html 到 ``` 之间的内容
+  const htmlBlockRegex = /```html([\s\S]*?)```/i;
+  const match = cleaned.match(htmlBlockRegex);
+  if (match && match[1]) {
+    cleaned = match[1].trim();
+  } else {
+    // 尝试提取 ``` 到 ```
+    const codeBlockRegex = /```([\s\S]*?)```/;
+    const match2 = cleaned.match(codeBlockRegex);
+    if (match2 && match2[1]) {
+      cleaned = match2[1].trim();
+    }
+  }
+  
+  return cleaned;
+}
+
+// 前端网页质量软校验与自适应补全
+function validateAndRepairHtmlFront(html) {
+  if (!html) {
+    return { valid: false, reason: '生成网页内容为空' };
+  }
+  
+  let repaired = html.trim();
+  const lowerHtml = repaired.toLowerCase();
+  
+  // 1. 文档结构基本检测
+  if (!lowerHtml.includes('<!doctype html>') && !lowerHtml.includes('<html')) {
+    return { valid: false, reason: '缺少 HTML 基本文档结构标记' };
+  }
+
+  // 2. 自适应自动修补闭合
+  let needsRepair = false;
+  let appendContent = '';
+  
+  const openScriptCount = (lowerHtml.match(/<script/g) || []).length;
+  const closeScriptCount = (lowerHtml.match(/<\/script>/g) || []).length;
+  if (openScriptCount > closeScriptCount) {
+    appendContent += '\n</script>';
+    needsRepair = true;
+  }
+  
+  if (!lowerHtml.includes('</body>')) {
+    appendContent += '\n</body>';
+    needsRepair = true;
+  }
+  
+  if (!lowerHtml.includes('</html>')) {
+    appendContent += '\n</html>';
+    needsRepair = true;
+  }
+  
+  if (needsRepair && appendContent) {
+    repaired += appendContent;
+  }
+
+  const updatedLowerHtml = repaired.toLowerCase();
+
+  // 3. 可视化依赖检查 (必须包含 Three.js 或 D3.js 从而兼容 2D 渲染方案)
+  const hasThree = updatedLowerHtml.includes('three.js') || 
+                   updatedLowerHtml.includes('three.min.js') || 
+                   updatedLowerHtml.includes('unpkg.com/three') || 
+                   updatedLowerHtml.includes('three.module') ||
+                   updatedLowerHtml.includes('three@') ||
+                   updatedLowerHtml.includes('d3.js') ||
+                   updatedLowerHtml.includes('d3.min.js') ||
+                   updatedLowerHtml.includes('d3@');
+  if (!hasThree) {
+    return { valid: false, reason: '未检测到任何 Three.js 3D 或 D3.js 2D 依赖库脚本引用', repairedHtml: repaired };
+  }
+  
+  // 4. 场景渲染基本结构
+  const hasCanvasOrSvg = updatedLowerHtml.includes('canvas') || 
+                         updatedLowerHtml.includes('renderer') || 
+                         updatedLowerHtml.includes('webgl') || 
+                         updatedLowerHtml.includes('three') ||
+                         updatedLowerHtml.includes('svg') ||
+                         updatedLowerHtml.includes('d3');
+  if (!hasCanvasOrSvg) {
+    return { valid: false, reason: '缺少用于渲染 3D 场景的 Canvas/WebGL 或 2D 交互的 SVG 结构配置', repairedHtml: repaired };
+  }
+
+  // 5. 体量检测
+  if (repaired.length < 1500) {
+    return { valid: false, reason: '生成代码长度不足（仅 ' + repaired.length + ' 字节）', repairedHtml: repaired };
+  }
+
+  return { valid: true, repairedHtml: repaired };
+}

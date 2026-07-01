@@ -392,23 +392,28 @@ function validateAndRepairHtml(html) {
 
   const updatedLowerHtml = repaired.toLowerCase();
 
-  // 3. 3D 可视化依赖检查 (必须包含 Three.js)
+  // 3. 可视化依赖检查 (必须包含 Three.js 或 D3.js 从而兼容 2D 渲染方案)
   const hasThree = updatedLowerHtml.includes('three.js') || 
                    updatedLowerHtml.includes('three.min.js') || 
                    updatedLowerHtml.includes('unpkg.com/three') || 
                    updatedLowerHtml.includes('three.module') ||
-                   updatedLowerHtml.includes('three@');
+                   updatedLowerHtml.includes('three@') ||
+                   updatedLowerHtml.includes('d3.js') ||
+                   updatedLowerHtml.includes('d3.min.js') ||
+                   updatedLowerHtml.includes('d3@');
   if (!hasThree) {
-    return { valid: false, reason: '未检测到任何 Three.js 3D 依赖库脚本引用', repairedHtml: repaired };
+    return { valid: false, reason: '未检测到任何 Three.js 3D 或 D3.js 2D 依赖库脚本引用', repairedHtml: repaired };
   }
   
   // 4. 场景渲染基本结构
   const hasCanvas = updatedLowerHtml.includes('canvas') || 
                     updatedLowerHtml.includes('renderer') || 
                     updatedLowerHtml.includes('webgl') || 
-                    updatedLowerHtml.includes('three');
+                    updatedLowerHtml.includes('three') ||
+                    updatedLowerHtml.includes('svg') ||
+                    updatedLowerHtml.includes('d3');
   if (!hasCanvas) {
-    return { valid: false, reason: '缺少用于渲染 3D 场景的 Canvas/WebGL 配置或渲染类', repairedHtml: repaired };
+    return { valid: false, reason: '缺少用于渲染 3D 场景的 Canvas/WebGL 或 2D 交互的 SVG 结构配置', repairedHtml: repaired };
   }
 
   // 5. 体量检测 (体量过短的通常是空模板或不完整回答)
