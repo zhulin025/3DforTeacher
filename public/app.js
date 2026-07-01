@@ -651,7 +651,25 @@ function setupEventListeners() {
     alert('配置已成功保存！');
     closeModelModal();
   });
+
+  // 主题切换事件
+  const themeToggle = document.getElementById('theme-toggle');
+  if (themeToggle) {
+    themeToggle.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        document.documentElement.classList.add('light');
+        localStorage.setItem('theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        localStorage.setItem('theme', 'dark');
+      }
+    });
+  }
 }
+
 
 // 核心生成逻辑
 async function generate3DPage(keyword) {
