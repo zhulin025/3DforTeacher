@@ -727,62 +727,129 @@ async function generate3DPage(keyword) {
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error || '生成失败，请重试');
+      throw new Error(data.error || '提交生成任务失败，请重试。');
     }
     
-    const htmlContent = data.html;
-    if (!htmlContent) {
-      throw new Error('生成的网页内容为空');
-    }
-    
-    // 3. 生成成功，处理响应
-    currentGeneratedHtml = htmlContent;
-    
-    if (currentBlobUrl) {
-      URL.revokeObjectURL(currentBlobUrl);
-    }
-    
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    currentBlobUrl = URL.createObjectURL(blob);
-    
-    previewIframe.src = currentBlobUrl;
-    previewIframe.classList.remove('opacity-0');
-    
-    // 更新界面状态
-    previewUrl.innerText = `aetherviz://lesson/${encodeURIComponent(keyword)}`;
-    statusDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50';
-    
-    // 如果是命中缓存，给予相应提示状态
+    // 情况 A：如果命中了缓存，直接同步处理结果
     if (data.fromCache) {
-      statusText.innerText = `已展示(缓存): ${keyword}`;
-    } else {
-      statusText.innerText = `已生成: ${keyword}`;
+      const htmlContent = data.html;
+      if (!htmlContent) {
+        throw new Error('缓存的网页内容为空。');
+      }
+      handleGenerationSuccess(keyword, htmlContent, true);
+      return;
     }
-    
-    // 启用操作按钮
-    btnCopy.disabled = false;
-    btnFullscreen.disabled = false;
-    btnDownload.disabled = false;
-    
-    // 隐藏 Loading 并重载历史记录
-    finishLoadingSimulation();
+
+    // 情况 B：创建了异步任务，开始轮询任务状态
+    if (data.taskId) {
+      await pollTaskStatus(data.taskId, keyword);
+    } else {
+      throw new Error('未获取到有效的边缘生成任务 ID。');
+    }
     
   } catch (error) {
-    console.error('API Error:', error);
-    
-    // 显示错误提示
-    loadingTitle.innerText = '生成页面失败';
-    loadingTitle.className = 'text-sm font-semibold text-rose-500 tracking-wide font-outfit';
-    loadingDesc.innerText = error.message || '网络连接或模型响应错误';
-    progressBar.parentElement.classList.add('hidden');
-    
-    statusDot.className = 'inline-block w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50';
-    statusText.innerText = `生成失败: ${error.message.substring(0, 30)}`;
-    
-    setTimeout(() => {
-      resetLoadingState();
-    }, 4500);
+    handleGenerationError(error);
   }
+}
+
+// 轮询边缘端异步生成任务状态
+async function pollTaskStatus(taskId, keyword) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const maxAttempts = 80; // 80 * 2.5s = 200 秒上限 (约 3 分钟)
+    
+    const interval = setInterval(async () => {
+      attempts++;
+      if (attempts > maxAttempts) {
+        clearInterval(interval);
+        reject(new Error('AI 生成任务执行超时（超过 3 分钟未响应），请重试。'));
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/generate?taskId=${encodeURIComponent(taskId)}`);
+        if (!response.ok) {
+          const errData = await response.json();
+          throw new Error(errData.error || `HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.status === 'pending') {
+          loadingTitle.innerText = `[队列排队中...] 正在生成: ${keyword}`;
+        } else if (data.status === 'processing') {
+          loadingTitle.innerText = `[AI 正在构建...] 正在生成: ${keyword}`;
+        } else if (data.status === 'success') {
+          clearInterval(interval);
+          handleGenerationSuccess(keyword, data.html, false);
+          resolve();
+        } else if (data.status === 'failed') {
+          clearInterval(interval);
+          reject(new Error(data.error || '大模型生成任务在边缘端失败。'));
+        }
+      } catch (err) {
+        console.warn(`[Poll Task Fail] 轮询任务状态错误 #${attempts}:`, err);
+        // 如果是偶发性网络抖动，我们继续尝试轮询，若超出重试上限则抛错
+        if (attempts >= maxAttempts) {
+          clearInterval(interval);
+          reject(new Error(`轮询任务状态失败: ${err.message}`));
+        }
+      }
+    }, 2500);
+  });
+}
+
+// 成功处理逻辑
+function handleGenerationSuccess(keyword, htmlContent, fromCache) {
+  currentGeneratedHtml = htmlContent;
+  
+  if (currentBlobUrl) {
+    URL.revokeObjectURL(currentBlobUrl);
+  }
+  
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  currentBlobUrl = URL.createObjectURL(blob);
+  
+  previewIframe.src = currentBlobUrl;
+  previewIframe.classList.remove('opacity-0');
+  
+  // 更新界面状态
+  previewUrl.innerText = `aetherviz://lesson/${encodeURIComponent(keyword)}`;
+  statusDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50';
+  
+  // 如果是命中缓存，给予相应提示状态
+  if (fromCache) {
+    statusText.innerText = `已展示(缓存): ${keyword}`;
+  } else {
+    statusText.innerText = `已生成: ${keyword}`;
+  }
+  
+  // 启用操作按钮
+  btnCopy.disabled = false;
+  btnFullscreen.disabled = false;
+  btnDownload.disabled = false;
+  
+  // 隐藏 Loading 并重载历史记录
+  finishLoadingSimulation();
+}
+
+// 失败处理逻辑
+function handleGenerationError(error) {
+  console.error('API Error:', error);
+  
+  // 显示错误提示
+  loadingTitle.innerText = '生成页面失败';
+  loadingTitle.className = 'text-sm font-semibold text-rose-500 tracking-wide font-outfit';
+  loadingDesc.innerText = error.message || '网络连接或模型响应错误';
+  progressBar.parentElement.classList.add('hidden');
+  
+  statusDot.className = 'inline-block w-2 h-2 rounded-full bg-rose-500 shadow-md shadow-rose-500/50';
+  statusText.innerText = `生成失败: ${error.message.substring(0, 30)}`;
+  
+  setTimeout(() => {
+    resetLoadingState();
+  }, 4500);
+}
 }
 
 // 模拟加载动画

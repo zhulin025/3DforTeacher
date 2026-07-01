@@ -37,6 +37,7 @@
   
   --history-item-bg: rgba(15, 23, 42, 0.01);
   --history-item-border: rgba(15, 23, 42, 0.04);
+  --keyword-text: #000000;
 }
 
 html.dark {
@@ -76,6 +77,7 @@ html.dark {
 
   --history-item-bg: rgba(255, 255, 255, 0.02);
   --history-item-border: rgba(255, 255, 255, 0.04);
+  --keyword-text: #e2e8f0;
 }
 
 body {
@@ -126,7 +128,7 @@ body {
 .keyword-card {
   background: var(--history-item-bg);
   border: 1px solid var(--history-item-border);
-  color: var(--text-secondary);
+  color: var(--keyword-text);
   transition: all 0.25s ease;
 }
 
