@@ -689,6 +689,7 @@ function setupEventListeners() {
     searchInput.value = keyword;
     renderTasksAndHistoryMarkup(); // 刷新高亮状态
 
+    const historyProvider = item.dataset.provider || '';
     const historyModelName = item.dataset.modelName;
 
     // 2. 状态栏载入中反馈
@@ -696,7 +697,7 @@ function setupEventListeners() {
     statusText.innerText = `正在载入历史: ${keyword}...`;
 
     // 3. 直接通过 GET 接口读取 KV 缓存，彻底绕过生成逻辑
-    fetch(`/api/history-content?modelName=${encodeURIComponent(historyModelName)}&keyword=${encodeURIComponent(keyword)}`)
+    fetch(`/api/history-content?modelName=${encodeURIComponent(historyModelName)}&keyword=${encodeURIComponent(keyword)}&provider=${encodeURIComponent(historyProvider)}`)
       .then(response => {
         if (!response.ok) {
           return response.json().then(err => { throw new Error(err.error || '未命中缓存') });

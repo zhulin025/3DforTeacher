@@ -47,10 +47,34 @@ export async function onRequestPost(context) {
       }
     }
 
-    // 2. 尝试从 KV 缓存中同步读取
+    // 2. 尝试从 KV 缓存中同步读取 (支持老版本 Key 兼容与平滑迁移)
     if (KV) {
       try {
-        const cachedHtml = await KV.get(cacheKey);
+        let cachedHtml = await KV.get(cacheKey);
+        
+        // 兼容老版本格式一：html:provider:modelName:keyword
+        if (!cachedHtml) {
+          const provider = modelConfig ? modelConfig.provider : 'built-in';
+          const oldCacheKey = `html:${provider}:${modelId}:${cleanKeyword}`;
+          cachedHtml = await KV.get(oldCacheKey);
+          
+          if (cachedHtml) {
+            console.log(`[Cache Migration POST] 命中并平滑升级老格式 Key: ${oldCacheKey} -> ${cacheKey}`);
+            context.waitUntil(KV.put(cacheKey, cachedHtml));
+          }
+        }
+
+        // 兼容老版本格式二：html:built-in:gemini-2.5-flash:keyword
+        if (!cachedHtml && modelId === 'gemini-2.5-flash') {
+          const oldBuiltInKey = `html:built-in:gemini-2.5-flash:${cleanKeyword}`;
+          cachedHtml = await KV.get(oldBuiltInKey);
+          
+          if (cachedHtml) {
+            console.log(`[Cache Migration POST] 命中并平滑升级内置老格式 Key: ${oldBuiltInKey} -> ${cacheKey}`);
+            context.waitUntil(KV.put(cacheKey, cachedHtml));
+          }
+        }
+
         if (cachedHtml) {
           console.log(`[Edge Cache Hit] 命中缓存: [${modelId}] -> "${cleanKeyword}"`);
           return new Response(JSON.stringify({ html: cachedHtml, fromCache: true }), {
