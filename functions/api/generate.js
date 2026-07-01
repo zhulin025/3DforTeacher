@@ -159,7 +159,25 @@ export async function onRequestGet(context) {
     return new Response(taskDataStr, {
       status: 200,
       headers: { 
-  async function runAsyncTask(taskId, keyword, modelConfig, env) {
+        'Content-Type': 'application/json;charset=UTF-8',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+
+  } catch (error) {
+    console.error('[Edge GET Error]', error);
+    return new Response(JSON.stringify({ error: '读取任务状态时出错。', details: error.message }), {
+      status: 500,
+      headers: { 
+        'Content-Type': 'application/json;charset=UTF-8',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
+}
+
+// 后台任务异步处理链
+async function runAsyncTask(taskId, keyword, modelConfig, env) {
   const KV = env.AETHERVIZ_KV;
   const taskKey = `task:${taskId}`;
   const modelId = modelConfig ? `${modelConfig.provider}:${modelConfig.modelName}` : 'built-in:gemini-2.5-flash';
