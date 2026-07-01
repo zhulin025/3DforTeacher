@@ -195,6 +195,9 @@ let loadingInterval = null;
 let currentKeyword = '';
 let models = [];
 let activeModelId = 'built-in-gemini';
+let activeTasks = [];
+let cachedHistoryList = [];
+let focusedKeyword = '';
 
 // 初始化函数
 function init() {
@@ -400,50 +403,128 @@ async function loadHistory() {
     const response = await fetch('/api/history');
     if (!response.ok) throw new Error('拉取历史记录失败');
     
-    const list = await response.json();
-    historyCount.innerText = `${list.length} 条记录`;
-
-    if (list.length === 0) {
-      historyList.innerHTML = `<div class="text-center text-slate-600 text-xs py-8 select-none">暂无生成历史</div>`;
-      return;
-    }
-
-    historyList.innerHTML = list.map(item => {
-      // 提取相对时间或格式化日期
-      const timeStr = formatRelativeTime(item.createdAt);
-      const isBuiltIn = item.provider === 'built-in';
-      const modelDisplay = isBuiltIn ? '内置 Gemini' : item.modelName;
-      
-      // 判断该项目是否匹配当前下拉框选中的模型
-      const expectedId = isBuiltIn ? 'built-in-gemini' : `${item.provider}:${item.modelName}`;
-      const isCurrentModelMatch = expectedId === activeModelId;
-
-      return `
-        <div 
-          data-keyword="${item.keyword}"
-          data-model-id="${expectedId}"
-          data-model-name="${item.modelName}"
-          class="history-item p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 text-left"
-          title="点击瞬间重新载入并渲染该页面"
-        >
-          <div class="flex-1 min-w-0 pr-1">
-            <div class="text-xs font-semibold text-slate-300 truncate">${item.keyword}</div>
-            <div class="text-[9px] text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
-              <span>${modelDisplay}</span>
-              <span>•</span>
-              <span>${timeStr}</span>
-            </div>
-          </div>
-          ${isCurrentModelMatch ? `
-            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-md shadow-cyan-400/50" title="当前模型与此历史匹配"></span>
-          ` : ''}
-        </div>
-      `;
-    }).join('');
+    cachedHistoryList = await response.json();
+    renderTasksAndHistoryMarkup();
 
   } catch (err) {
     console.error('加载历史记录错误:', err);
-    historyList.innerHTML = `<div class="text-center text-rose-500/60 text-xs py-8">拉取历史记录失败</div>`;
+    renderTasksAndHistoryMarkup(true);
+  }
+}
+
+// 统一融合渲染排队任务与历史记录
+function renderTasksAndHistoryMarkup(hasFetchError = false) {
+  const hasActive = activeTasks.length > 0;
+  const hasHistory = cachedHistoryList.length > 0;
+  
+  historyCount.innerText = `${cachedHistoryList.length} 条记录`;
+  
+  if (!hasActive && !hasHistory) {
+    if (hasFetchError) {
+      historyList.innerHTML = `<div class="text-center text-rose-500/60 text-xs py-8">拉取历史记录失败</div>`;
+    } else {
+      historyList.innerHTML = `<div class="text-center text-slate-500 dark:text-slate-600 text-xs py-8 select-none">暂无生成历史</div>`;
+    }
+    return;
+  }
+  
+  // 1. 先渲染 activeTasks 中的进行中或失败任务
+  const activeMarkup = activeTasks.map(task => {
+    let statusBadge = '';
+    let statusClass = '';
+    let titleAttr = '';
+    
+    if (task.status === 'pending') {
+      statusBadge = `
+        <div class="flex items-center gap-1 text-[9px] text-cyan-500 dark:text-cyan-400 font-medium">
+          <i class="fa-solid fa-circle-notch animate-spin text-[8px]"></i>
+          <span>排队中</span>
+        </div>
+      `;
+      statusClass = 'bg-cyan-500/5 dark:bg-cyan-500/10 border-cyan-500/10 dark:border-cyan-500/20';
+      titleAttr = '任务已进入后台排队队列，您可以继续在页面进行其他操作';
+    } else if (task.status === 'processing') {
+      statusBadge = `
+        <div class="flex items-center gap-1 text-[9px] text-teal-500 dark:text-teal-400 font-medium">
+          <div class="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></div>
+          <span>生成中</span>
+        </div>
+      `;
+      statusClass = 'bg-teal-500/5 dark:bg-teal-500/10 border-teal-500/10 dark:border-teal-500/20';
+      titleAttr = 'AI 正在分析并全力编写 3D 可视化代码...';
+    } else if (task.status === 'failed') {
+      statusBadge = `
+        <div class="flex items-center gap-2">
+          <span class="text-[9px] text-rose-500 font-semibold" title="${task.error || '未知错误'}">生成失败</span>
+          <button 
+            type="button" 
+            class="retry-task-btn p-1 rounded-md bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 dark:text-rose-400 hover:text-rose-600 dark:hover:text-rose-300 transition cursor-pointer flex items-center justify-center" 
+            data-id="${task.id}" 
+            title="点击此按钮立刻重试生成"
+          >
+            <i class="fa-solid fa-rotate-right text-[9px]"></i>
+          </button>
+        </div>
+      `;
+      statusClass = 'bg-rose-500/5 dark:bg-rose-500/10 border-rose-500/10 dark:border-rose-500/20';
+      titleAttr = `失败原因: ${task.error || '未知错误'}，点击右侧按钮可发起重试`;
+    }
+    
+    return `
+      <div 
+        class="history-item p-2.5 rounded-xl border flex items-center justify-between gap-2 text-left select-none transition ${statusClass}"
+        title="${titleAttr}"
+      >
+        <div class="flex-1 min-w-0 pr-1">
+          <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">${task.keyword}</div>
+          <div class="text-[9px] text-slate-500 mt-0.5 truncate">
+            <span>使用模型: ${task.modelName}</span>
+          </div>
+        </div>
+        <div>
+          ${statusBadge}
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // 2. 再渲染已有的历史纪录
+  const historyMarkup = cachedHistoryList.map(item => {
+    const timeStr = formatRelativeTime(item.createdAt);
+    const isBuiltIn = item.provider === 'built-in';
+    const modelDisplay = isBuiltIn ? '内置 Gemini' : item.modelName;
+    
+    const expectedId = isBuiltIn ? 'built-in-gemini' : `${item.provider}:${item.modelName}`;
+    const isCurrentModelMatch = expectedId === activeModelId;
+    const isFocused = item.keyword === focusedKeyword;
+
+    return `
+      <div 
+        data-keyword="${item.keyword}"
+        data-model-id="${expectedId}"
+        data-model-name="${item.modelName}"
+        class="history-item p-2.5 rounded-xl cursor-pointer flex items-center justify-between gap-2 text-left border border-transparent transition ${isFocused ? 'bg-[var(--card-hover-bg)] border-[var(--card-hover-border)] active-history' : 'hover:bg-slate-500/5'}"
+        title="点击载入该 3D 页面"
+      >
+        <div class="flex-1 min-w-0 pr-1">
+          <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate ${isFocused ? 'text-cyan-400 font-bold' : ''}">${item.keyword}</div>
+          <div class="text-[9px] text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
+            <span>${modelDisplay}</span>
+            <span>•</span>
+            <span>${timeStr}</span>
+          </div>
+        </div>
+        ${isCurrentModelMatch ? `
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-md shadow-cyan-400/50" title="当前模型与此历史匹配"></span>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+  
+  if (hasFetchError && !hasHistory) {
+    historyList.innerHTML = activeMarkup + `<div class="text-center text-rose-500/60 text-xs py-8">拉取历史记录失败</div>`;
+  } else {
+    historyList.innerHTML = activeMarkup + historyMarkup;
   }
 }
 
@@ -575,24 +656,47 @@ function setupEventListeners() {
     generate3DPage(keyword);
   });
 
-  // 历史记录列表点击重载事件
+  // 历史记录列表点击重载与队列重试事件
   historyList.addEventListener('click', (e) => {
+    // A. 检测是否点击了重试按钮
+    const retryBtn = e.target.closest('.retry-task-btn');
+    if (retryBtn) {
+      e.stopPropagation();
+      const taskId = retryBtn.dataset.id;
+      const task = activeTasks.find(t => t.id === taskId);
+      if (task) {
+        task.status = 'pending';
+        task.error = null;
+        renderTasksAndHistoryMarkup();
+        triggerTaskGeneration(task);
+      }
+      return;
+    }
+
+    // B. 常规历史载入卡片点击
     const item = e.target.closest('.history-item');
     if (!item) return;
     
     const keyword = item.dataset.keyword;
+    if (!keyword) {
+      // 正在生成或已失败的任务，尚未具备预览内容，忽略其整体点击
+      return;
+    }
+    
+    // 设置当前预览聚焦词为该历史记录
+    focusedKeyword = keyword;
+    renderTasksAndHistoryMarkup(); // 刷新高亮状态
+
     const historyModelId = item.dataset.modelId;
     const historyModelName = item.dataset.modelName;
 
-    // 尝试匹配本地是否依然拥有该模型的 API Key
+    // 尝试匹配本地是否依然拥有该模型的配置
     const matchedModel = models.find(m => m.id === historyModelId);
     if (matchedModel) {
-      // 找到了，切换为此模型并更新选择框
       activeModelId = historyModelId;
       localStorage.setItem('aetherviz_active_model_id', activeModelId);
       renderModelSelect();
     } else {
-      // 没找到，说明用户后来把该自定义模型配置删掉了。使用当前下拉选择的模型，并进行 Toast 警示
       alert(`提示：生成该历史网页所用的模型 [${historyModelName}] 的本地密钥配置已被修改或删除，将使用当前下拉框选中的模型尝试渲染。`);
     }
 
@@ -786,50 +890,57 @@ function setupEventListeners() {
 }
 
 
-// 核心生成逻辑
+// 核心生成逻辑（非阻塞，支持多任务并行生成）
 async function generate3DPage(keyword) {
-  currentKeyword = keyword;
+  const cleanKeyword = keyword.trim();
+  if (!cleanKeyword) return;
   
-  // 1. UI 切换到 Loading 状态
-  welcomeOverlay.style.opacity = '0';
-  setTimeout(() => {
-    welcomeOverlay.classList.add('hidden');
-  }, 300);
-  
-  loadingOverlay.classList.remove('hidden');
-  setTimeout(() => {
-    loadingOverlay.style.opacity = '1';
-  }, 50);
+  // 1. 设置当前正处于聚焦关注的词
+  focusedKeyword = cleanKeyword;
 
-  // 禁用控制组件
-  searchInput.disabled = true;
-  generateBtn.disabled = true;
-  modelSelect.disabled = true;
-  btnConfigModels.disabled = true;
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.disabled = true);
-  document.querySelectorAll('.keyword-card').forEach(card => card.style.pointerEvents = 'none');
-  
-  // 禁用操作按钮
-  btnCopy.disabled = true;
-  btnFullscreen.disabled = true;
-  btnDownload.disabled = true;
-  
-  // 2. 模拟加载进度
-  startLoadingSimulation(keyword);
-
-  // 获取当前选中的模型配置
+  // 2. 获取当前选中的模型配置，生成临时活动任务对象
   const activeModel = models.find(m => m.id === activeModelId);
-  const payload = { keyword };
-
-  if (activeModel && activeModel.id !== 'built-in-gemini') {
-    payload.modelConfig = {
+  const isBuiltIn = activeModelId === 'built-in-gemini';
+  
+  const task = {
+    id: 'task-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+    keyword: cleanKeyword,
+    modelName: activeModel ? activeModel.alias.substring(0, 15) : '内置 Gemini',
+    modelConfig: isBuiltIn ? null : {
       provider: activeModel.provider,
       apiKey: activeModel.apiKey,
       baseURL: activeModel.baseURL,
       modelName: activeModel.modelName
-    };
+    },
+    status: 'pending',
+    error: null,
+    taskId: null
+  };
+
+  // 3. 将任务压入前端待处理队列顶部，并即时渲染列表
+  activeTasks.unshift(task);
+  renderTasksAndHistoryMarkup();
+
+  // 4. 触发此任务在后台的生成和轮询
+  triggerTaskGeneration(task);
+}
+
+// 触发单个任务的后端生成请求
+async function triggerTaskGeneration(task) {
+  const payload = { keyword: task.keyword };
+  if (task.modelConfig) {
+    payload.modelConfig = task.modelConfig;
   }
-  
+
+  // 仅在当前聚焦的词是该任务，且 iframe 预览为空时，才显示大原子 Loading
+  if (focusedKeyword === task.keyword && !currentBlobUrl) {
+    welcomeOverlay.classList.add('hidden');
+    loadingOverlay.classList.remove('hidden');
+    loadingOverlay.style.opacity = '1';
+    startLoadingSimulation(task.keyword);
+    loadingTitle.innerText = `[队列排队中...] 正在生成: ${task.keyword}`;
+  }
+
   try {
     const response = await fetch('/api/generate', {
       method: 'POST',
@@ -842,86 +953,123 @@ async function generate3DPage(keyword) {
     const data = await response.json();
     
     if (!response.ok) {
-      throw new Error(data.error || '提交生成任务失败，请重试。');
-    }
-
-    // 情况 A：后端同步返回生成结果
-    if (data.html) {
-      handleGenerationSuccess(keyword, data.html, Boolean(data.fromCache));
-      return;
+      throw new Error(data.error || '提交任务失败。');
     }
     
-    // 情况 B：如果命中了缓存，直接同步处理结果
+    // 情况 A：如果命中了缓存，直接同步处理结果，并从活动任务移除
     if (data.fromCache) {
-      const htmlContent = data.html;
-      if (!htmlContent) {
-        throw new Error('缓存的网页内容为空。');
-      }
-      handleGenerationSuccess(keyword, htmlContent, true);
+      activeTasks = activeTasks.filter(t => t.id !== task.id);
+      handleGenerationSuccess(task.keyword, data.html, true);
+      await loadHistory();
       return;
     }
 
-    // 情况 C：创建了异步任务，开始轮询任务状态
+    // 情况 B：获取到了边缘端创建的异步任务 ID，开启轮询
     if (data.taskId) {
-      await pollTaskStatus(data.taskId, keyword);
+      task.taskId = data.taskId;
+      task.status = 'pending';
+      renderTasksAndHistoryMarkup();
+      await pollTaskStatus(task);
     } else {
-      throw new Error('未获取到有效的边缘生成任务 ID。');
+      throw new Error('未获取到边缘生成任务的有效 ID。');
     }
     
   } catch (error) {
-    handleGenerationError(error);
+    task.status = 'failed';
+    task.error = error.message;
+    renderTasksAndHistoryMarkup();
+    
+    // 若当前聚焦的依然是该词，则反馈错误至主页面蒙层
+    if (focusedKeyword === task.keyword) {
+      handleGenerationError(error);
+    }
   }
 }
 
-// 轮询边缘端异步生成任务状态
-async function pollTaskStatus(taskId, keyword) {
-  return new Promise((resolve, reject) => {
-    let attempts = 0;
-    const maxAttempts = 80; // 80 * 2.5s = 200 秒上限 (约 3 分钟)
+// 轮询边缘端任务状态
+async function pollTaskStatus(task) {
+  let attempts = 0;
+  const maxAttempts = 80; // 80 * 2.5s = 200 秒上限 (约3分20秒)
+  
+  const interval = setInterval(async () => {
+    // 如果任务由于某种原因已不在活动列表（例如被重置），则停止轮询
+    if (!activeTasks.some(t => t.id === task.id)) {
+      clearInterval(interval);
+      return;
+    }
     
-    const interval = setInterval(async () => {
-      attempts++;
-      if (attempts > maxAttempts) {
-        clearInterval(interval);
-        reject(new Error('AI 生成任务执行超时（超过 3 分钟未响应），请重试。'));
-        return;
+    attempts++;
+    if (attempts > maxAttempts) {
+      clearInterval(interval);
+      task.status = 'failed';
+      task.error = '生成任务在边缘端执行超时。';
+      renderTasksAndHistoryMarkup();
+      if (focusedKeyword === task.keyword) {
+        handleGenerationError(new Error(task.error));
+      }
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/generate?taskId=${encodeURIComponent(task.taskId)}`);
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || `HTTP ${response.status}`);
       }
       
-      try {
-        const response = await fetch(`/api/generate?taskId=${encodeURIComponent(taskId)}`);
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.error || `HTTP ${response.status}`);
+      const data = await response.json();
+      
+      if (data.status === 'pending') {
+        task.status = 'pending';
+        renderTasksAndHistoryMarkup();
+        if (focusedKeyword === task.keyword) {
+          loadingTitle.innerText = `[队列排队中...] 正在生成: ${task.keyword}`;
         }
-        
-        const data = await response.json();
-        
-        if (data.status === 'pending') {
-          loadingTitle.innerText = `[队列排队中...] 正在生成: ${keyword}`;
-        } else if (data.status === 'processing') {
-          loadingTitle.innerText = `[AI 正在构建...] 正在生成: ${keyword}`;
-        } else if (data.status === 'success') {
-          clearInterval(interval);
-          handleGenerationSuccess(keyword, data.html, false);
-          resolve();
-        } else if (data.status === 'failed') {
-          clearInterval(interval);
-          reject(new Error(data.error || '大模型生成任务在边缘端失败。'));
+      } else if (data.status === 'processing') {
+        task.status = 'processing';
+        renderTasksAndHistoryMarkup();
+        if (focusedKeyword === task.keyword) {
+          loadingTitle.innerText = `[AI 正在构建...] 正在生成: ${task.keyword}`;
         }
-      } catch (err) {
-        console.warn(`[Poll Task Fail] 轮询任务状态错误 #${attempts}:`, err);
-        // 如果是偶发性网络抖动，我们继续尝试轮询，若超出重试上限则抛错
-        if (attempts >= maxAttempts) {
-          clearInterval(interval);
-          reject(new Error(`轮询任务状态失败: ${err.message}`));
+      } else if (data.status === 'success') {
+        clearInterval(interval);
+        
+        // 生成成功，移出队列，装载到历史，并触发显示
+        activeTasks = activeTasks.filter(t => t.id !== task.id);
+        handleGenerationSuccess(task.keyword, data.html, false);
+        await loadHistory();
+      } else if (data.status === 'failed') {
+        clearInterval(interval);
+        task.status = 'failed';
+        task.error = data.error || '边缘服务生成失败。';
+        renderTasksAndHistoryMarkup();
+        
+        if (focusedKeyword === task.keyword) {
+          handleGenerationError(new Error(task.error));
         }
       }
-    }, 2500);
-  });
+    } catch (err) {
+      console.warn(`[Poll Task Fail] #${attempts} 轮询失败:`, err);
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        task.status = 'failed';
+        task.error = `轮询出错: ${err.message}`;
+        renderTasksAndHistoryMarkup();
+        if (focusedKeyword === task.keyword) {
+          handleGenerationError(new Error(task.error));
+        }
+      }
+    }
+  }, 2500);
 }
 
-// 成功处理逻辑
+// 成功处理逻辑 (仅在 keyword 匹配 focusedKeyword 时才自动载入预览)
 function handleGenerationSuccess(keyword, htmlContent, fromCache) {
+  if (keyword !== focusedKeyword) {
+    console.log(`[Background Task Success] 后台主题 "${keyword}" 生成完成，因用户切换未自动展示`);
+    return;
+  }
+
   currentGeneratedHtml = htmlContent;
   
   if (currentBlobUrl) {
@@ -938,7 +1086,6 @@ function handleGenerationSuccess(keyword, htmlContent, fromCache) {
   previewUrl.innerText = `aetherviz://lesson/${encodeURIComponent(keyword)}`;
   statusDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50';
   
-  // 如果是命中缓存，给予相应提示状态
   if (fromCache) {
     statusText.innerText = `已展示(缓存): ${keyword}`;
   } else {
@@ -950,11 +1097,12 @@ function handleGenerationSuccess(keyword, htmlContent, fromCache) {
   btnFullscreen.disabled = false;
   btnDownload.disabled = false;
   
-  // 隐藏 Loading 并重载历史记录
+  // 隐藏 Loading 动画并刷新高亮
   finishLoadingSimulation();
+  renderTasksAndHistoryMarkup();
 }
 
-// 失败处理逻辑
+// 失败处理逻辑 (仅在 focusedKeyword 匹配时提示错误)
 function handleGenerationError(error) {
   console.error('API Error:', error);
   
