@@ -159,25 +159,7 @@ export async function onRequestGet(context) {
     return new Response(taskDataStr, {
       status: 200,
       headers: { 
-        'Content-Type': 'application/json;charset=UTF-8',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-
-  } catch (error) {
-    console.error('[Edge GET Error]', error);
-    return new Response(JSON.stringify({ error: '读取任务状态时出错。', details: error.message }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json;charset=UTF-8',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
-}
-
-// 后台异步任务处理链 (限流、自动重试和质量检测)
-async function runAsyncTask(taskId, keyword, modelConfig, env) {
+  async function runAsyncTask(taskId, keyword, modelConfig, env) {
   const KV = env.AETHERVIZ_KV;
   const taskKey = `task:${taskId}`;
   const modelId = modelConfig ? `${modelConfig.provider}:${modelConfig.modelName}` : 'built-in:gemini-2.5-flash';
@@ -206,7 +188,7 @@ async function runAsyncTask(taskId, keyword, modelConfig, env) {
           rawHtml = await callCustomModel(keyword, modelConfig, systemInstruction);
         } else {
           if (!builtInApiKey) {
-            throw new Error('未配置内置 GEMINI_API_KEY。');
+            throw new Error('边缘服务未配置内置 GEMINI_API_KEY，且未收到前端自定义的模型配置。请在界面上配置自定义模型，或在 Cloudflare 控制台添加环境变量。');
           }
           rawHtml = await callGeminiDirectly(keyword, builtInApiKey, systemInstruction);
         }
@@ -226,25 +208,38 @@ async function runAsyncTask(taskId, keyword, modelConfig, env) {
         
         const candidateHtml = cleanedHtml.trim();
 
-        // 质量检测
-        const validation = validateHtmlQuality(candidateHtml);
+        // 质量检测与自适应闭合修补
+        const validation = validateAndRepairHtml(candidateHtml);
         if (validation.valid) {
-          finalHtml = candidateHtml;
+          finalHtml = validation.repairedHtml;
           success = true;
-          console.log(`[Task ${taskId}] 尝试 #${attempt} 通过质量检测！`);
+          console.log(`[Task ${taskId}] 尝试 #${attempt} 验证通过（包含可能的截断修补）！`);
           break;
         } else {
-          console.warn(`[Task ${taskId}] 尝试 #${attempt} 未通过质量检测。原因: ${validation.reason}`);
-          throw new Error(`质量检测未通过: ${validation.reason}`);
+          console.warn(`[Task ${taskId}] 尝试 #${attempt} 校验未通过。原因: ${validation.reason}`);
+          throw new Error(`代码体检未通过: ${validation.reason}`);
         }
 
       } catch (err) {
         lastErrorMsg = err.message;
         console.error(`[Task ${taskId}] 尝试 #${attempt} 失败: ${err.message}`);
         
-        // 若还没到最后一次，休眠 2.5 秒后再试，避免瞬时大模型服务过载
+        // 判断是否是不可恢复的配置/权限问题。若是，则无需重试，立即断开循环
+        const isFatal = err.message.includes('API_KEY') || 
+                        err.message.includes('未配置') || 
+                        err.message.includes('401') || 
+                        err.message.includes('403') || 
+                        err.message.includes('Unauthorized') || 
+                        err.message.includes('不支持的接口');
+                        
+        if (isFatal) {
+          console.warn(`[Task ${taskId}] 检测到不可自动恢复的环境/鉴权错误，直接打回失败。`);
+          break;
+        }
+        
+        // 若还没到最后一次，休眠 1.5 秒后再试，防大模型并发保护
         if (attempt < 3) {
-          await new Promise(r => setTimeout(r, 2500));
+          await new Promise(r => setTimeout(r, 1500));
         }
       }
     }
@@ -293,7 +288,7 @@ async function runAsyncTask(taskId, keyword, modelConfig, env) {
       await KV.put(taskKey, JSON.stringify({
         status: 'failed',
         keyword,
-        error: `经过 3 次重试仍未成功。最后一次报错: ${lastErrorMsg}`,
+        error: `后端大模型生成失败: ${lastErrorMsg}`,
         failedAt: Date.now()
       }), { expirationTtl: 1800 });
       
@@ -313,45 +308,73 @@ async function runAsyncTask(taskId, keyword, modelConfig, env) {
   }
 }
 
-// 高标准 HTML 质量检测函数
-function validateHtmlQuality(html) {
+// 融合自适应软修复的代码质量检测函数
+function validateAndRepairHtml(html) {
   if (!html || typeof html !== 'string') {
-    return { valid: false, reason: '生成网页内容为空或非法' };
+    return { valid: false, reason: '生成网页内容为空或非法', repairedHtml: html };
   }
   
-  const lowerHtml = html.toLowerCase();
+  let repaired = html.trim();
+  const lowerHtml = repaired.toLowerCase();
   
-  // 1. 文档完整性与是否截断
+  // 1. 文档结构基本检测
   if (!lowerHtml.includes('<!doctype html>') && !lowerHtml.includes('<html')) {
-    return { valid: false, reason: '缺少 HTML 基本文档结构标记' };
+    return { valid: false, reason: '缺少 HTML 基本文档结构标记', repairedHtml: html };
   }
+
+  // 2. 自适应自动修补闭合（针对大模型生成中途被截断）
+  let needsRepair = false;
+  let appendContent = '';
+  
+  const openScriptCount = (lowerHtml.match(/<script/g) || []).length;
+  const closeScriptCount = (lowerHtml.match(/<\/script>/g) || []).length;
+  if (openScriptCount > closeScriptCount) {
+    appendContent += '\n</script>';
+    needsRepair = true;
+  }
+  
+  if (!lowerHtml.includes('</body>')) {
+    appendContent += '\n</body>';
+    needsRepair = true;
+  }
+  
   if (!lowerHtml.includes('</html>')) {
-    return { valid: false, reason: '缺少 </html> 闭合标签，页面可能在输出中被中途截断' };
+    appendContent += '\n</html>';
+    needsRepair = true;
   }
   
-  // 2. 3D 可视化关键依赖 (必须包含 Three.js 脚本引入)
-  const hasThree = lowerHtml.includes('three.js') || 
-                   lowerHtml.includes('three.min.js') || 
-                   lowerHtml.includes('unpkg.com/three') || 
-                   lowerHtml.includes('three@');
+  if (needsRepair && appendContent) {
+    repaired += appendContent;
+    console.log(`[Validation Repair] 自动检测到大模型输出被截断，已追加修补标签: ${appendContent.replace(/\n/g, ' ')}`);
+  }
+
+  const updatedLowerHtml = repaired.toLowerCase();
+
+  // 3. 3D 可视化依赖检查 (必须包含 Three.js)
+  const hasThree = updatedLowerHtml.includes('three.js') || 
+                   updatedLowerHtml.includes('three.min.js') || 
+                   updatedLowerHtml.includes('unpkg.com/three') || 
+                   updatedLowerHtml.includes('three.module') ||
+                   updatedLowerHtml.includes('three@');
   if (!hasThree) {
-    return { valid: false, reason: '未检测到任何 Three.js 3D 渲染器脚本依赖的引用' };
+    return { valid: false, reason: '未检测到任何 Three.js 3D 依赖库脚本引用', repairedHtml: repaired };
   }
   
-  // 3. 3D 场景渲染核心标签或函数
-  const hasCanvas = lowerHtml.includes('canvas') || 
-                    lowerHtml.includes('renderer') || 
-                    lowerHtml.includes('webglrenderer');
+  // 4. 场景渲染基本结构
+  const hasCanvas = updatedLowerHtml.includes('canvas') || 
+                    updatedLowerHtml.includes('renderer') || 
+                    updatedLowerHtml.includes('webgl') || 
+                    updatedLowerHtml.includes('three');
   if (!hasCanvas) {
-    return { valid: false, reason: '缺少 Canvas 渲染区或 WebGLRenderer 的定义，3D 将无法显示' };
+    return { valid: false, reason: '缺少用于渲染 3D 场景的 Canvas/WebGL 配置或渲染类', repairedHtml: repaired };
   }
 
-  // 4. 健壮的代码体量下限（低于 2000 字节，通常属于不完整、残缺的代码）
-  if (html.length < 2000) {
-    return { valid: false, reason: '生成的代码长度太短（仅 ' + html.length + ' 字节），缺少必要的交互组件与场景细节' };
+  // 5. 体量检测 (体量过短的通常是空模板或不完整回答)
+  if (repaired.length < 1500) {
+    return { valid: false, reason: '生成代码长度不足（仅 ' + repaired.length + ' 字节）', repairedHtml: repaired };
   }
 
-  return { valid: true };
+  return { valid: true, repairedHtml: repaired };
 }
 
 // 边缘环境直接 fetch 调用 Custom Model
