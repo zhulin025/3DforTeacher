@@ -145,6 +145,7 @@ window.CURRICULUM_KEYWORDS = {
               keywords: [
                 { name: "多边形面积公式", desc: "平行四边形、三角形、梯形割补推导" },
                 { name: "长方体和正方体体积", desc: "单位立方体堆叠理解体积公式" },
+                { name: "长方体体积精确课件", desc: "EduLab精确引擎：长宽高与体积公式同源演示" },
                 { name: "因数与倍数", desc: "数轴和网格展示公因数、公倍数" },
                 { name: "可能性实验", desc: "随机抽取与概率频率变化" }
               ]
@@ -345,6 +346,9 @@ window.CURRICULUM_KEYWORDS = {
               keywords: [
                 { name: "原子结构", desc: "原子核、电子层和元素周期变化" },
                 { name: "分子和化学反应", desc: "分子重组解释化学变化" },
+                { name: "甲烷燃烧", desc: "EduLab精确引擎：甲烷与氧气断键成键微观演示" },
+                { name: "氢气燃烧", desc: "EduLab精确引擎：氢气与氧气生成水的原子守恒" },
+                { name: "电解水", desc: "EduLab精确引擎：水通电分解为氢气和氧气" },
                 { name: "质量守恒定律", desc: "反应前后原子种类和数目不变" },
                 { name: "溶液和溶解度", desc: "溶质、溶剂、饱和溶液和溶解度曲线" },
                 { name: "酸碱盐反应", desc: "离子反应、中和反应和沉淀生成" }
@@ -383,7 +387,9 @@ window.CURRICULUM_KEYWORDS = {
                 { name: "函数图像变换", desc: "平移、伸缩、翻折对函数图像的影响" },
                 { name: "三角函数单位圆", desc: "角度、弧度、正弦余弦和周期变化" },
                 { name: "向量的线性运算", desc: "向量加法、数乘和几何表示" },
-                { name: "空间几何体", desc: "棱柱、棱锥、圆柱、圆锥和球的结构" }
+                { name: "空间几何体", desc: "棱柱、棱锥、圆柱、圆锥和球的结构" },
+                { name: "正四棱锥线面角", desc: "EduLab精确引擎：建系与空间向量求线面角" },
+                { name: "正方体线面角", desc: "EduLab精确引擎：A₁C与底面夹角的3D向量解法" }
               ]
             },
             {
@@ -408,6 +414,7 @@ window.CURRICULUM_KEYWORDS = {
                 { name: "物质的量", desc: "微粒数、摩尔质量和气体摩尔体积" },
                 { name: "离子反应", desc: "电解质电离和离子方程式" },
                 { name: "氧化还原反应", desc: "电子转移、化合价变化和氧化还原对" },
+                { name: "钠与氯气氧化还原", desc: "EduLab精确引擎：电子转移与NaCl形成过程" },
                 { name: "元素周期律", desc: "原子半径、电负性和周期性变化" }
               ]
             },
@@ -420,6 +427,7 @@ window.CURRICULUM_KEYWORDS = {
                 { name: "细胞膜流动镶嵌模型", desc: "磷脂双分子层和膜蛋白运动" },
                 { name: "酶促反应", desc: "酶降低活化能和温度pH影响" },
                 { name: "有氧呼吸", desc: "糖酵解、三羧酸循环和电子传递链" },
+                { name: "葡萄糖有氧氧化", desc: "EduLab精确引擎：葡萄糖与氧气生成二氧化碳和水" },
                 { name: "光合作用", desc: "光反应、暗反应和叶绿体结构" }
               ]
             },
@@ -460,6 +468,12 @@ window.CURRICULUM_KEYWORDS = {
               color: "from-amber-500 to-yellow-500",
               keywords: [
                 { name: "椭圆双曲线抛物线", desc: "圆锥曲线定义、焦点和准线" },
+                { name: "椭圆向量数量积范围", desc: "EduLab精确引擎：焦点弦与向量数量积范围" },
+                { name: "椭圆焦点弦长范围", desc: "EduLab精确引擎：过焦点动弦长度实时读数" },
+                { name: "椭圆三角形面积最大值", desc: "EduLab精确引擎：过焦点弦与原点构成面积最值" },
+                { name: "椭圆斜率之积定值", desc: "EduLab精确引擎：中心对称弦中的斜率定值" },
+                { name: "抛物线焦点弦定值", desc: "EduLab精确引擎：焦点弦向量数量积定值" },
+                { name: "双曲线离心率范围", desc: "EduLab精确引擎：参数变化下的离心率范围" },
                 { name: "空间向量", desc: "三维坐标、点线面位置关系和夹角" },
                 { name: "导数几何意义", desc: "切线斜率与函数变化率" },
                 { name: "排列组合", desc: "分类计数、分步计数和组合模型" }
@@ -568,6 +582,7 @@ window.CURRICULUM_KEYWORDS = {
                 { name: "有机物结构和同分异构", desc: "碳骨架、官能团和空间构型" },
                 { name: "烃的反应", desc: "加成、取代、氧化和聚合反应" },
                 { name: "酯化反应", desc: "羧酸和醇生成酯的可逆反应" },
+                { name: "乙酸乙酯酯化机理", desc: "EduLab精确引擎：羧酸与醇生成酯和水的机理动画" },
                 { name: "晶体结构", desc: "离子晶体、分子晶体和金属晶体模型" }
               ]
             },

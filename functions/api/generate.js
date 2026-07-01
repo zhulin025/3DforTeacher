@@ -300,6 +300,7 @@ async function runAsyncTask(taskId, keyword, modelConfig, env) {
           keyword: keyword,
           modelName: modelConfig ? modelConfig.modelName : 'gemini-2.5-flash',
           provider: modelConfig ? modelConfig.provider : 'built-in',
+          source: 'ai',
           createdAt: new Date().toISOString()
         };
 
@@ -392,17 +393,21 @@ function validateAndRepairHtml(html) {
 
   const updatedLowerHtml = repaired.toLowerCase();
 
-  // 3. 可视化依赖检查 (必须包含 Three.js 或 D3.js 从而兼容 2D 渲染方案)
-  const hasThree = updatedLowerHtml.includes('three.js') || 
-                   updatedLowerHtml.includes('three.min.js') || 
-                   updatedLowerHtml.includes('unpkg.com/three') || 
-                   updatedLowerHtml.includes('three.module') ||
-                   updatedLowerHtml.includes('three@') ||
-                   updatedLowerHtml.includes('d3.js') ||
-                   updatedLowerHtml.includes('d3.min.js') ||
-                   updatedLowerHtml.includes('d3@');
-  if (!hasThree) {
-    return { valid: false, reason: '未检测到任何 Three.js 3D 或 D3.js 2D 依赖库脚本引用', repairedHtml: repaired };
+  // 3. 可视化依赖检查：兼容 Three.js、D3、Canvas、SVG、KaTeX/MathJax 等 2D/3D 课件
+  const hasVisualRuntime = updatedLowerHtml.includes('three.js') || 
+                           updatedLowerHtml.includes('three.min.js') || 
+                           updatedLowerHtml.includes('unpkg.com/three') || 
+                           updatedLowerHtml.includes('three.module') ||
+                           updatedLowerHtml.includes('three@') ||
+                           updatedLowerHtml.includes('d3.js') ||
+                           updatedLowerHtml.includes('d3.min.js') ||
+                           updatedLowerHtml.includes('d3@') ||
+                           updatedLowerHtml.includes('<canvas') ||
+                           updatedLowerHtml.includes('<svg') ||
+                           updatedLowerHtml.includes('katex') ||
+                           updatedLowerHtml.includes('mathjax');
+  if (!hasVisualRuntime) {
+    return { valid: false, reason: '未检测到任何 3D/2D 可视化运行结构（Three.js、D3、Canvas、SVG 或公式渲染）', repairedHtml: repaired };
   }
   
   // 4. 场景渲染基本结构

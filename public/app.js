@@ -140,6 +140,145 @@ const TEMPLATES_DATA = {
   }
 };
 
+const EDULAB_MODEL_NAME = 'edulab-exact-engine';
+const EDULAB_PROVIDER = 'edulab';
+const EDULAB_LESSONS = [
+  {
+    id: 'solid-cube-line-plane',
+    title: '正方体线面角',
+    category: '立体几何',
+    path: '/edulab/lessons/solid/cube-line-plane.html',
+    priority: 100,
+    matchAny: ['正方体线面角', '正方体', 'a1c', '底面abcd']
+  },
+  {
+    id: 'solid-box-volume',
+    title: '长方体体积',
+    category: '立体几何',
+    path: '/edulab/lessons/solid/box-volume.html',
+    priority: 95,
+    matchAny: ['长方体体积', '正方体体积', '长方体和正方体体积', '长宽高体积']
+  },
+  {
+    id: 'solid-pyramid-line-plane',
+    title: '正四棱锥线面角',
+    category: '立体几何',
+    path: '/edulab/lessons/solid/pyramid-line-plane.html',
+    priority: 90,
+    matchAny: ['正四棱锥', '棱锥线面角', '线面角', '立体几何']
+  },
+  {
+    id: 'analytic-ellipse-dot-range',
+    title: '椭圆向量数量积范围',
+    category: '解析几何',
+    path: '/edulab/lessons/analytic/ellipse_dot_range.html',
+    priority: 80,
+    matchAny: ['椭圆向量数量积', '数量积范围', '椭圆数量积', '圆锥曲线', '椭圆双曲线抛物线']
+  },
+  {
+    id: 'analytic-ellipse-chord-range',
+    title: '椭圆焦点弦长范围',
+    category: '解析几何',
+    path: '/edulab/lessons/analytic/ellipse_chord_range.html',
+    priority: 79,
+    matchAny: ['椭圆焦点弦', '焦点弦长', '弦长范围']
+  },
+  {
+    id: 'analytic-ellipse-area-max',
+    title: '椭圆三角形面积最大值',
+    category: '解析几何',
+    path: '/edulab/lessons/analytic/ellipse_area_max.html',
+    priority: 78,
+    matchAny: ['椭圆三角形面积', '三角形面积最大值', '面积最大值']
+  },
+  {
+    id: 'analytic-ellipse-slope-const',
+    title: '椭圆斜率之积定值',
+    category: '解析几何',
+    path: '/edulab/lessons/analytic/ellipse_slopeprod_const.html',
+    priority: 77,
+    matchAny: ['椭圆斜率', '斜率之积', '斜率定值']
+  },
+  {
+    id: 'analytic-parabola-dot-const',
+    title: '抛物线焦点弦定值',
+    category: '解析几何',
+    path: '/edulab/lessons/analytic/parabola_dot_const.html',
+    priority: 76,
+    matchAny: ['抛物线', '抛物线焦点弦', '焦点弦定值']
+  },
+  {
+    id: 'analytic-hyperbola-ecc-range',
+    title: '双曲线离心率范围',
+    category: '解析几何',
+    path: '/edulab/lessons/analytic/hyperbola_ecc_range.html',
+    priority: 75,
+    matchAny: ['双曲线', '双曲线离心率', '离心率范围']
+  },
+  {
+    id: 'chem-combustion-ch4',
+    title: '甲烷燃烧',
+    category: '化学反应',
+    path: '/edulab/lessons/chem/combustion_ch4.html',
+    priority: 70,
+    matchAny: ['甲烷燃烧', 'ch4燃烧', '甲烷的燃烧']
+  },
+  {
+    id: 'chem-combustion-h2',
+    title: '氢气燃烧',
+    category: '化学反应',
+    path: '/edulab/lessons/chem/combustion_h2.html',
+    priority: 69,
+    matchAny: ['氢气燃烧', 'h2燃烧', '氢气的燃烧']
+  },
+  {
+    id: 'chem-electrolysis-water',
+    title: '电解水',
+    category: '化学反应',
+    path: '/edulab/lessons/chem/electrolysis_water.html',
+    priority: 68,
+    matchAny: ['电解水', '水的电解']
+  },
+  {
+    id: 'chem-redox-na-cl2',
+    title: '钠与氯气氧化还原',
+    category: '化学反应',
+    path: '/edulab/lessons/chem/redox_na_cl2.html',
+    priority: 67,
+    matchAny: ['钠与氯气', '氯化钠生成', '氧化还原反应', '氧化还原', '电子转移']
+  },
+  {
+    id: 'chem-esterification',
+    title: '酯化反应',
+    category: '化学反应',
+    path: '/edulab/lessons/chem/esterification.html',
+    priority: 66,
+    matchAny: ['酯化反应', '羧酸和醇', '乙酸乙酯']
+  },
+  {
+    id: 'chem-glucose-combustion',
+    title: '葡萄糖有氧氧化',
+    category: '化学反应',
+    path: '/edulab/lessons/chem/glucose_combustion.html',
+    priority: 65,
+    matchAny: ['葡萄糖有氧氧化', '有氧呼吸', '细胞呼吸', '葡萄糖燃烧']
+  }
+];
+
+function normalizeLessonKeyword(text) {
+  return String(text || '').toLowerCase().replace(/\s+/g, '');
+}
+
+function findEdulabLesson(keyword) {
+  const normalizedKeyword = normalizeLessonKeyword(keyword);
+  if (!normalizedKeyword) return null;
+
+  return EDULAB_LESSONS
+    .slice()
+    .sort((a, b) => b.priority - a.priority)
+    .find(lesson => lesson.matchAny.some(token => normalizedKeyword.includes(normalizeLessonKeyword(token)))) || null;
+}
+
 // DOM 元素引用
 const searchInput = document.getElementById('search-input');
 const generateBtn = document.getElementById('generate-btn');
@@ -496,10 +635,11 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
   const historyMarkup = cachedHistoryList.map(item => {
     const timeStr = formatRelativeTime(item.createdAt);
     const isBuiltIn = item.provider === 'built-in';
-    const modelDisplay = isBuiltIn ? '内置 Gemini' : item.modelName;
+    const isEduLab = item.source === 'edulab' || item.provider === EDULAB_PROVIDER || item.modelName === EDULAB_MODEL_NAME;
+    const modelDisplay = isEduLab ? 'EduLab 精确引擎' : (isBuiltIn ? '内置 Gemini' : item.modelName);
     
     const expectedId = isBuiltIn ? 'built-in-gemini' : `${item.provider}:${item.modelName}`;
-    const isCurrentModelMatch = expectedId === activeModelId;
+    const isCurrentModelMatch = !isEduLab && expectedId === activeModelId;
     const isFocused = item.keyword === focusedKeyword;
 
     return `
@@ -515,6 +655,7 @@ function renderTasksAndHistoryMarkup(hasFetchError = false) {
           <div class="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate ${isFocused ? 'text-cyan-400 font-bold' : ''}">${item.keyword}</div>
           <div class="text-[9px] text-slate-500 mt-0.5 truncate flex items-center gap-1.5">
             <span>${modelDisplay}</span>
+            ${isEduLab ? `<span class="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-500 dark:text-emerald-300 font-semibold">精确</span>` : ''}
             <span>•</span>
             <span>${timeStr}</span>
           </div>
@@ -1021,14 +1162,18 @@ async function generate3DPage(keyword, overrideModelConfig = null) {
   // 1. 设置当前正处于聚焦关注 the 词
   focusedKeyword = cleanKeyword;
 
+  const exactLesson = findEdulabLesson(cleanKeyword);
+
   // 2. 决定要发送的模型配置与显示别名
   const activeModel = models.find(m => m.id === activeModelId);
   const isBuiltIn = activeModelId === 'built-in-gemini';
   
   let modelConfigToSend = null;
-  let modelNameDisplay = '内置 Gemini';
+  let modelNameDisplay = exactLesson ? 'EduLab 精确引擎' : '内置 Gemini';
   
-  if (overrideModelConfig) {
+  if (exactLesson) {
+    modelConfigToSend = null;
+  } else if (overrideModelConfig) {
     modelConfigToSend = overrideModelConfig;
     modelNameDisplay = overrideModelConfig.modelName;
   } else if (activeModel && activeModel.id !== 'built-in-gemini') {
@@ -1046,6 +1191,7 @@ async function generate3DPage(keyword, overrideModelConfig = null) {
     keyword: cleanKeyword,
     modelName: modelNameDisplay,
     modelConfig: modelConfigToSend,
+    exactLesson,
     status: 'pending',
     error: null,
     taskId: null
@@ -1068,6 +1214,67 @@ async function triggerTaskGeneration(task) {
     loadingOverlay.style.opacity = '1';
     startLoadingSimulation(task.keyword);
     loadingTitle.innerText = `[排队生成中...] 正在生成: ${task.keyword}`;
+  }
+
+  if (task.exactLesson) {
+    // ---------------- 情况 0：EduLab 预生成精确课件，直接读取静态 HTML 并复用缓存/历史 ----------------
+    try {
+      task.status = 'processing';
+      renderTasksAndHistoryMarkup();
+      if (focusedKeyword === task.keyword) {
+        loadingTitle.innerText = `[精确引擎载入中...] ${task.exactLesson.title}`;
+      }
+
+      const lessonRes = await fetch(task.exactLesson.path, { cache: 'force-cache' });
+      if (!lessonRes.ok) {
+        throw new Error(`精确课件静态文件读取失败 [${lessonRes.status}]`);
+      }
+
+      const finalHtml = await lessonRes.text();
+      if (!finalHtml || !finalHtml.toLowerCase().includes('<!doctype html>')) {
+        throw new Error('精确课件 HTML 内容为空或结构异常。');
+      }
+
+      try {
+        const cacheRes = await fetch('/api/save-cache', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            keyword: task.keyword,
+            modelName: EDULAB_MODEL_NAME,
+            provider: EDULAB_PROVIDER,
+            source: 'edulab',
+            lessonId: task.exactLesson.id,
+            lessonTitle: task.exactLesson.title,
+            html: finalHtml
+          })
+        });
+
+        if (!cacheRes.ok) {
+          console.warn('[EduLab Cache Warning] 精确课件已载入，但写入历史缓存失败:', await cacheRes.text());
+        }
+      } catch (cacheErr) {
+        console.warn('[EduLab Cache Warning] 精确课件已载入，但无法同步历史缓存:', cacheErr);
+      }
+
+      activeTasks = activeTasks.filter(t => t.id !== task.id);
+      handleGenerationSuccess(task.keyword, finalHtml, false, { source: 'edulab', lesson: task.exactLesson });
+      await loadHistory();
+      return;
+
+    } catch (error) {
+      console.error('EduLab 精确课件载入失败:', error);
+      task.status = 'failed';
+      task.error = error.message;
+      renderTasksAndHistoryMarkup();
+
+      if (focusedKeyword === task.keyword) {
+        handleGenerationError(error);
+      }
+      return;
+    }
   }
 
   if (!task.modelConfig) {
@@ -1298,7 +1505,7 @@ async function pollTaskStatus(task) {
 }
 
 // 成功处理逻辑 (仅在 keyword 匹配 focusedKeyword 时才自动载入预览)
-function handleGenerationSuccess(keyword, htmlContent, fromCache) {
+function handleGenerationSuccess(keyword, htmlContent, fromCache, options = {}) {
   if (keyword !== focusedKeyword) {
     console.log(`[Background Task Success] 后台主题 "${keyword}" 生成完成，因用户切换未自动展示`);
     return;
@@ -1320,7 +1527,9 @@ function handleGenerationSuccess(keyword, htmlContent, fromCache) {
   previewUrl.innerText = `aetherviz://lesson/${encodeURIComponent(keyword)}`;
   statusDot.className = 'inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-md shadow-emerald-500/50';
   
-  if (fromCache) {
+  if (options.source === 'edulab') {
+    statusText.innerText = `已载入(精确引擎): ${options.lesson?.title || keyword}`;
+  } else if (fromCache) {
     statusText.innerText = `已展示(缓存): ${keyword}`;
   } else {
     statusText.innerText = `已生成: ${keyword}`;
@@ -1504,17 +1713,21 @@ function validateAndRepairHtmlFront(html) {
 
   const updatedLowerHtml = repaired.toLowerCase();
 
-  // 3. 可视化依赖检查 (必须包含 Three.js 或 D3.js 从而兼容 2D 渲染方案)
-  const hasThree = updatedLowerHtml.includes('three.js') || 
-                   updatedLowerHtml.includes('three.min.js') || 
-                   updatedLowerHtml.includes('unpkg.com/three') || 
-                   updatedLowerHtml.includes('three.module') ||
-                   updatedLowerHtml.includes('three@') ||
-                   updatedLowerHtml.includes('d3.js') ||
-                   updatedLowerHtml.includes('d3.min.js') ||
-                   updatedLowerHtml.includes('d3@');
-  if (!hasThree) {
-    return { valid: false, reason: '未检测到任何 Three.js 3D 或 D3.js 2D 依赖库脚本引用', repairedHtml: repaired };
+  // 3. 可视化依赖检查：兼容 Three.js、D3、Canvas、SVG、KaTeX/MathJax 等 2D/3D 课件
+  const hasVisualRuntime = updatedLowerHtml.includes('three.js') || 
+                           updatedLowerHtml.includes('three.min.js') || 
+                           updatedLowerHtml.includes('unpkg.com/three') || 
+                           updatedLowerHtml.includes('three.module') ||
+                           updatedLowerHtml.includes('three@') ||
+                           updatedLowerHtml.includes('d3.js') ||
+                           updatedLowerHtml.includes('d3.min.js') ||
+                           updatedLowerHtml.includes('d3@') ||
+                           updatedLowerHtml.includes('<canvas') ||
+                           updatedLowerHtml.includes('<svg') ||
+                           updatedLowerHtml.includes('katex') ||
+                           updatedLowerHtml.includes('mathjax');
+  if (!hasVisualRuntime) {
+    return { valid: false, reason: '未检测到任何 3D/2D 可视化运行结构（Three.js、D3、Canvas、SVG 或公式渲染）', repairedHtml: repaired };
   }
   
   // 4. 场景渲染基本结构

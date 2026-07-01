@@ -35,9 +35,64 @@ try {
 }
 
 const generationHistory = [];
+const generatedHtmlCache = new Map();
+
+function makeCacheKey(modelName, keyword) {
+  return `html:${modelName.trim()}:${keyword.trim()}`;
+}
 
 app.get("/api/history", (req, res) => {
   res.json(generationHistory.slice(0, 30));
+});
+
+app.get("/api/history-content", (req, res) => {
+  const { modelName, keyword } = req.query;
+  if (!modelName || !keyword) {
+    return res.status(400).json({ error: "缺少 modelName 或 keyword 参数。" });
+  }
+
+  const html = generatedHtmlCache.get(makeCacheKey(String(modelName), String(keyword)));
+  if (!html) {
+    return res.status(404).json({ error: "该历史网页的本地缓存内容已失效，请重新生成。" });
+  }
+
+  res.json({ html });
+});
+
+app.post("/api/save-cache", (req, res) => {
+  const { keyword, modelName, provider, html, source, lessonId, lessonTitle } = req.body;
+  if (!keyword || !modelName || !html) {
+    return res.status(400).json({ error: "参数不完整。" });
+  }
+
+  const cleanKeyword = String(keyword).trim();
+  const cleanModelName = String(modelName).trim();
+  const cleanProvider = provider ? String(provider).trim() : "custom";
+  const cleanSource = source ? String(source).trim() : "ai";
+
+  generatedHtmlCache.set(makeCacheKey(cleanModelName, cleanKeyword), html);
+
+  const newHistoryItem = {
+    id: `${cleanModelName}:${cleanKeyword}:${Date.now()}`,
+    keyword: cleanKeyword,
+    modelName: cleanModelName,
+    provider: cleanProvider,
+    source: cleanSource,
+    lessonId: lessonId ? String(lessonId).trim() : "",
+    lessonTitle: lessonTitle ? String(lessonTitle).trim() : "",
+    createdAt: new Date().toISOString()
+  };
+
+  const existingIdx = generationHistory.findIndex(item => item.keyword === newHistoryItem.keyword && item.modelName === newHistoryItem.modelName);
+  if (existingIdx !== -1) {
+    generationHistory.splice(existingIdx, 1);
+  }
+  generationHistory.unshift(newHistoryItem);
+  if (generationHistory.length > 100) {
+    generationHistory.length = 100;
+  }
+
+  res.json({ success: true });
 });
 
 app.delete("/api/history", (req, res) => {
@@ -48,6 +103,8 @@ app.delete("/api/history", (req, res) => {
 
   const idx = generationHistory.findIndex(item => item.id === id);
   if (idx !== -1) {
+    const item = generationHistory[idx];
+    generatedHtmlCache.delete(makeCacheKey(item.modelName, item.keyword));
     generationHistory.splice(idx, 1);
     res.json({ success: true });
   } else {
@@ -208,11 +265,16 @@ app.post("/api/generate", async (req, res) => {
     }
     htmlContent = cleanedHtml.trim();
 
+    const historyModelName = modelConfig?.modelName || "gemini-2.5-flash";
+    const historyKeyword = keyword.trim();
+    generatedHtmlCache.set(makeCacheKey(historyModelName, historyKeyword), htmlContent);
+
     generationHistory.unshift({
       id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-      keyword: keyword.trim(),
+      keyword: historyKeyword,
       provider: modelConfig?.provider || "built-in",
-      modelName: modelConfig?.modelName || "gemini-2.5-flash",
+      modelName: historyModelName,
+      source: "ai",
       createdAt: new Date().toISOString()
     });
     if (generationHistory.length > 100) {

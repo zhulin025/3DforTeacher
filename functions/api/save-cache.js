@@ -3,7 +3,7 @@ export async function onRequestPost(context) {
   const { request, env } = context;
   
   try {
-    const { keyword, modelName, provider, html } = await request.json();
+    const { keyword, modelName, provider, html, source, lessonId, lessonTitle } = await request.json();
     
     if (!keyword || !modelName || !html) {
       return new Response(JSON.stringify({ error: '参数不完整。' }), {
@@ -29,6 +29,7 @@ export async function onRequestPost(context) {
     const cleanKeyword = keyword.trim();
     const cleanModelName = modelName.trim();
     const cleanProvider = provider ? provider.trim() : 'custom';
+    const cleanSource = source ? source.trim() : 'ai';
     
     // 拼装新版 cacheKey
     const cacheKey = `html:${cleanModelName}:${cleanKeyword}`;
@@ -45,6 +46,9 @@ export async function onRequestPost(context) {
       keyword: cleanKeyword,
       modelName: cleanModelName,
       provider: cleanProvider,
+      source: cleanSource,
+      lessonId: lessonId ? String(lessonId).trim() : '',
+      lessonTitle: lessonTitle ? String(lessonTitle).trim() : '',
       createdAt: new Date().toISOString()
     };
 
